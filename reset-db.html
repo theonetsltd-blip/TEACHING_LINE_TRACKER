@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 400px;
+        }
+        h1 { color: #333; margin: 0 0 20px 0; }
+        p { color: #666; margin: 0 0 20px 0; }
+        button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #c0392b; }
+        .success { color: #27ae60; margin-top: 20px; }
+        .info { background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: left; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Reset Database</h1>
+        <p>This will clear all data and reload with the new 55-topic curriculum.</p>
+        <div class="info">
+            <strong>📋 New Curriculum:</strong><br>
+            ✓ 55 comprehensive topics<br>
+            ✓ 6 phases covering 52 weeks<br>
+            ✓ 5 enrichment topics<br>
+            ✓ 4-6 periods per topic
+        </div>
+        <button onclick="resetDatabase()">🗑️ Reset & Reload</button>
+        <button onclick="goBack()">← Go Back</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function resetDatabase() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '⏳ Resetting database...';
+            
+            try {
+                // Step 1: Clear IndexedDB
+                statusDiv.innerHTML = '⏳ Clearing IndexedDB...';
+                await new Promise((resolve, reject) => {
+                    const req = indexedDB.deleteDatabase('TeachingProgressDB');
+                    req.onsuccess = resolve;
+                    req.onerror = reject;
+                    req.onblocked = () => {
+                        console.warn('Database deletion blocked');
+                        resolve();
+                    };
+                });
+                
+                // Step 2: Clear LocalStorage
+                statusDiv.innerHTML = '⏳ Clearing local storage...';
+                localStorage.clear();
+                
+                // Step 3: Clear SessionStorage
+                sessionStorage.clear();
+                
+                // Step 4: Wait a moment for cleanup
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Step 5: Clear Service Worker cache
+                statusDiv.innerHTML = '⏳ Clearing cache...';
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+                }
+                
+                statusDiv.innerHTML = '<div class="success">✅ Database reset successfully!<br>✅ Cache cleared!<br>✅ All data removed!<br><br>Reloading app with 55 new topics...<br><br>Please wait...</div>';
+                
+                // Step 6: Force reload after 3 seconds with cache bypass
+                setTimeout(() => {
+                    window.location.href = 'index.html?t=' + Date.now();
+                }, 3000);
+            } catch (error) {
+                statusDiv.innerHTML = '<div style="color: #e74c3c;">❌ Error: ' + error.message + '<br><br>Try: Close browser completely and reopen, then click Reset again.</div>';
+                console.error('Reset error:', error);
+            }
+        }
+        
+        function goBack() {
+            window.location.href = 'index.html?t=' + Date.now();
+        }
+    </script>
+</body>
+</html>

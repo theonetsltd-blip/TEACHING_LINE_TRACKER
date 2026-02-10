@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Teaching Progress Tracker PWA for tracking vocational training progress">
+    <meta name="theme-color" content="#2c3e50">
+    <title>Teaching Progress Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232c3e50' width='192' height='192'/><text x='50%' y='50%' font-size='120' fill='white' text-anchor='middle' dominant-baseline='middle' font-weight='bold'>📚</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%232c3e50' width='192' height='192'/><text x='50%' y='50%' font-size='120' fill='white' text-anchor='middle' dominant-baseline='middle' font-weight='bold'>📚</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="assets/images/logo.png" alt="School Logo" class="logo">
+                    <div>
+                        <h1>📚 Teaching Progress Tracker</h1>
+                        <p class="subtitle">BCK Level One - Vocational Training School, Tanzania</p>
+                    </div>
+                </div>
+                <p id="teacherInfo" class="teacher-info"></p>
+            </div>
+            <div class="header-actions">
+                <button id="viewTopicsBtn" class="btn btn-secondary" title="View Topics">📖 View Topics</button>
+                <button id="loadTopicsBtn" class="btn btn-secondary" title="Load Topics">📚 Load Topics</button>
+                <button id="exportBtn" class="btn btn-secondary" title="Export progress">📥 Export</button>
+                <button id="settingsBtn" class="btn btn-secondary" title="Settings">⚙️ Settings</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Kanban Board -->
+            <section class="kanban-board">
+                <!-- Not Started Column -->
+                <div class="kanban-column" data-status="not-started">
+                    <div class="column-header">
+                        <h2>Not Started</h2>
+                        <span class="column-count">0</span>
+                    </div>
+                    <div class="column-content" id="column-not-started">
+                        <!-- Cards will be inserted here by JS -->
+                    </div>
+                    <button class="btn btn-add-card" data-status="not-started">+ Add Topic</button>
+                </div>
+
+                <!-- In Progress Column -->
+                <div class="kanban-column" data-status="in-progress">
+                    <div class="column-header">
+                        <h2>In Progress</h2>
+                        <span class="column-count">0</span>
+                    </div>
+                    <div class="column-content" id="column-in-progress">
+                        <!-- Cards will be inserted here by JS -->
+                    </div>
+                    <button class="btn btn-add-card" data-status="in-progress">+ Add Topic</button>
+                </div>
+
+                <!-- Completed Column -->
+                <div class="kanban-column" data-status="completed">
+                    <div class="column-header">
+                        <h2>Completed</h2>
+                        <span class="column-count">0</span>
+                    </div>
+                    <div class="column-content" id="column-completed">
+                        <!-- Cards will be inserted here by JS -->
+                    </div>
+                    <button class="btn btn-add-card" data-status="completed">+ Add Topic</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>2026 © Designed by THE ONE TECH SERVICES COMPANY LTD • All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Modal for Adding/Editing Lessons -->
+    <div id="lessonModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Topic</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="lessonForm" class="modal-body">
+                <div class="form-group">
+                    <label for="topicName">Topic Name *</label>
+                    <input type="text" id="topicName" name="topic" required placeholder="e.g., Introduction to Computer">
+                </div>
+
+                <div class="form-group">
+                    <label for="week">Week Number</label>
+                    <input type="number" id="week" name="week" min="1" max="52" placeholder="e.g., 1">
+                </div>
+
+                <div class="form-group">
+                    <label for="periodsPlanned">Periods Planned</label>
+                    <input type="number" id="periodsPlanned" name="periodsPlanned" min="0" value="2">
+                </div>
+
+                <div class="form-group">
+                    <label for="periodsUsed">Periods Used</label>
+                    <input type="number" id="periodsUsed" name="periodsUsed" min="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="lastTaught">Last Taught Date</label>
+                    <input type="date" id="lastTaught" name="lastTaught">
+                </div>
+
+                <div class="form-group">
+                    <label for="nextStart">Next Start Point</label>
+                    <input type="text" id="nextStart" name="nextStart" placeholder="e.g., Page 3, Exercise 5">
+                </div>
+
+                <div class="form-group">
+                    <label for="remarks">Remarks / Notes</label>
+                    <textarea id="remarks" name="remarks" rows="3" placeholder="Any notes about this topic..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" required>
+                        <option value="not-started">Not Started</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Topic</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Auth Landing Page -->
+    <div id="authLanding" class="modal" style="display: flex;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>📚 Teaching Progress Tracker</h2>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p style="font-size: 1rem; margin-bottom: var(--spacing-lg);">Welcome to your teaching companion app</p>
+                <button id="loginBtn" type="button" class="btn btn-primary btn-block" style="margin-bottom: var(--spacing-md);">🔐 Login</button>
+                <button id="createProfileBtn" type="button" class="btn btn-secondary btn-block">✨ Create New Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <button class="modal-close" id="backFromLoginBtn" type="button">&times;</button>
+            </div>
+            <form id="loginForm" class="modal-body">
+                <div class="form-group">
+                    <label for="loginTeacherName">Teacher Name *</label>
+                    <input type="text" id="loginTeacherName" name="teacherName" required placeholder="Enter your name">
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password *</label>
+                    <input type="password" id="loginPassword" name="password" required placeholder="Enter your password">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="backLoginBtn" class="btn btn-secondary">Back</button>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Profile Modal -->
+    <div id="createProfileModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Your Profile</h2>
+                <button class="modal-close" id="backFromCreateBtn" type="button">&times;</button>
+            </div>
+            <form id="profileForm" class="modal-body">
+                <div class="form-group">
+                    <label for="teacherName">Teacher Name *</label>
+                    <input type="text" id="teacherName" name="teacherName" required placeholder="Your full name">
+                </div>
+
+                <div class="form-group">
+                    <label for="subjectName">Subject/Course Name *</label>
+                    <input type="text" id="subjectName" name="subjectName" required placeholder="e.g., Computer Science">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" name="password" required placeholder="Create a password (min 4 characters)" value="lukoa123">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirm your password" value="lukoa123">
+                </div>
+
+                <div class="form-group">
+                    <label for="schoolName">School Name</label>
+                    <input type="text" id="schoolName" name="schoolName" placeholder="School name">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="your.email@school.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="+255 xxx xxx xxx">
+                </div>
+
+                <div class="form-group">
+                    <label for="classroom">Classroom/Class Level</label>
+                    <input type="text" id="classroom" name="classroom" placeholder="e.g., Level One">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="backCreateBtn" class="btn btn-secondary">Back</button>
+                    <button type="submit" class="btn btn-primary">Create Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Topics Modal -->
+    <div id="viewTopicsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>All Topics</h2>
+                <button class="modal-close" id="closeViewTopicsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: var(--spacing-lg);">
+                    <input type="text" id="topicsSearchInput" placeholder="Search topics..." style="width: 100%; padding: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 0.95rem;">
+                </div>
+                <div id="topicsListContainer" style="max-height: 60vh; overflow-y: auto;">
+                    <!-- Topics will be populated here by JavaScript -->
+                </div>
+                <div class="form-actions" style="margin-top: var(--spacing-lg);">
+                    <button id="closeViewTopicsBtn" class="btn btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Change Password</h2>
+                <button class="modal-close" id="closeChangePasswordModalBtn">&times;</button>
+            </div>
+            <form id="changePasswordForm" class="modal-body">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password *</label>
+                    <input type="password" id="currentPassword" name="currentPassword" required placeholder="Enter current password">
+                </div>
+
+                <div class="form-group">
+                    <label for="newPassword">New Password *</label>
+                    <input type="password" id="newPassword" name="newPassword" required placeholder="Enter new password (min 4 characters)">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmNewPassword">Confirm New Password *</label>
+                    <input type="password" id="confirmNewPassword" name="confirmNewPassword" required placeholder="Confirm new password">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancelChangePasswordBtn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load Topics Modal -->
+    <div id="loadTopicsModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Load Topics</h2>
+                <button class="modal-close" id="closeLoadTopicsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select an option:</p>
+                <button id="loadDefaultTopicsFormBtn" class="btn btn-primary btn-block">📚 Load Standard Curriculum</button>
+                <button id="loadFromFileBtn" class="btn btn-secondary btn-block">📁 Import from File</button>
+                <div class="form-actions" style="margin-top: var(--spacing-lg);">
+                    <button id="closeLoadTopicsBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Export Progress</h2>
+                <button class="modal-close" id="closeExportModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <button id="exportCSV" class="btn btn-primary btn-block">📊 Export as CSV</button>
+                <button id="exportPDF" class="btn btn-primary btn-block">📄 Export as PDF Summary</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" id="closeSettingsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <h3>Teacher Profile</h3>
+                    <button id="editProfileBtn" class="btn btn-primary btn-block">👤 Edit Profile</button>
+                    <button id="changePasswordBtn" class="btn btn-secondary btn-block" style="margin-top: var(--spacing-sm);">🔐 Change Password</button>
+                    <button id="logoutBtn" class="btn btn-danger btn-block" style="margin-top: var(--spacing-sm);">🚪 Logout</button>
+                </div>
+
+                <div class="form-group">
+                    <h3>Database Actions</h3>
+                    <button id="loadDefaultTopicsBtn" class="btn btn-primary btn-block">📚 Load Default Topics</button>
+                    <p style="font-size: 0.75rem; margin-top: var(--spacing-sm); color: #27ae60;">For new users or different teachers</p>
+                </div>
+                <div class="form-group">
+                    <button id="forceResetBtn" class="btn btn-danger btn-block">🔄 Force Reset Database</button>
+                    <p class="warning" style="font-size: 0.75rem; margin-top: var(--spacing-sm);">Delete all and restore defaults.</p>
+                </div>
+
+                <div class="form-actions">
+                    <button id="closeSettingsBtn" class="btn btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Delete Topic?</h2>
+                <button class="modal-close" id="closeDeleteModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete "<span id="deleteTopicName"></span>"?</p>
+                <p class="warning">This action cannot be undone.</p>
+                <div class="form-actions">
+                    <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="confirmDeleteBtn" class="btn btn-danger">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/db.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>

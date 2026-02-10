@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Reset - Teaching Progress Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 400px;
+        }
+        h1 { color: #333; margin: 0 0 20px 0; }
+        p { color: #666; margin: 0 0 20px 0; line-height: 1.6; }
+        button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #c0392b; }
+        .success { color: #27ae60; margin-top: 20px; font-weight: bold; }
+        .error { color: #e74c3c; margin-top: 20px; font-weight: bold; }
+        .steps { background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: left; font-size: 14px; }
+        .status { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Force Reset</h1>
+        <p>This will completely wipe all data and reload the app fresh with 55 topics.</p>
+        <div class="steps">
+            <strong>This will:</strong><br>
+            ✓ Delete IndexedDB database<br>
+            ✓ Clear all browser storage<br>
+            ✓ Clear all caches<br>
+            ✓ Close service workers<br>
+            ✓ Unregister service workers<br>
+            ✓ Reload with fresh data
+        </div>
+        <button onclick="forceReset()">⚡ FORCE RESET NOW</button>
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        async function forceReset() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                statusDiv.innerHTML = '⏳ Step 1/6: Unregistering service workers...';
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of registrations) {
+                        await reg.unregister();
+                    }
+                }
+                
+                statusDiv.innerHTML = '⏳ Step 2/6: Closing active service workers...';
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({type: 'SKIP_WAITING'});
+                }
+                
+                statusDiv.innerHTML = '⏳ Step 3/6: Clearing caches...';
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                }
+                
+                statusDiv.innerHTML = '⏳ Step 4/6: Deleting IndexedDB databases...';
+                const dbs = await indexedDB.databases ? await indexedDB.databases() : [];
+                for (const db of dbs) {
+                    await new Promise((resolve) => {
+                        const req = indexedDB.deleteDatabase(db.name);
+                        req.onsuccess = resolve;
+                        req.onerror = resolve;
+                        req.onblocked = resolve;
+                    });
+                }
+                
+                statusDiv.innerHTML = '⏳ Step 5/6: Clearing all storage...';
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                statusDiv.innerHTML = '⏳ Step 6/6: Waiting for cleanup...';
+                await new Promise(r => setTimeout(r, 2000));
+                
+                statusDiv.innerHTML = '<div class="success">✅ Reset complete!<br>Reloading app in 2 seconds...</div>';
+                
+                setTimeout(() => {
+                    // Force navigate with cache bust and clear history
+                    window.location.href = 'index.html?t=' + Date.now();
+                }, 2000);
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="error">❌ Error: ' + error.message + '<br><br>Try closing browser completely and reopening.</div>';
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
