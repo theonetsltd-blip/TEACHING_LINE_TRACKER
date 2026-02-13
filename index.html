@@ -530,12 +530,38 @@
     <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore-compat.js"></script>
     
-    <!-- App scripts in dependency order -->
-    <script src="js/firebase-config.js"></script>
-    <script src="js/security.js"></script>
-    <script src="js/db.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Wait for Firebase to load, then load app scripts -->
+    <script>
+        // Ensure Firebase is loaded before proceeding
+        (async function() {
+            let attempts = 0;
+            while (!window.firebase && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            if (window.firebase) {
+                console.log('✓ Firebase ready, loading app scripts');
+                // Load remaining scripts
+                const scripts = [
+                    'js/firebase-config.js',
+                    'js/security.js',
+                    'js/db.js',
+                    'js/ui.js',
+                    'js/app.js'
+                ];
+                
+                for (const src of scripts) {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    document.body.appendChild(script);
+                    // Small delay between scripts to ensure proper initialization
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            } else {
+                console.error('✗ Firebase failed to load');
+            }
+        })();
+    </script>
 
     <!-- Register Service Worker -->
     <script>

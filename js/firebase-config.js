@@ -20,6 +20,21 @@ let firestore = null;
 let firebaseReady = false;
 let initAttempts = 0;
 
+// Wait for Firebase to be available globally
+async function waitForFirebase() {
+    return new Promise((resolve) => {
+        const checkFirebase = () => {
+            if (window.firebase && window.firebase.app && typeof firebase.initializeApp === 'function') {
+                console.log('✓ Firebase SDK loaded');
+                resolve();
+            } else {
+                setTimeout(checkFirebase, 100);
+            }
+        };
+        checkFirebase();
+    });
+}
+
 function initializeFirebase() {
     try {
         // Check that all Firebase modules are loaded
