@@ -18,24 +18,46 @@ const firebaseConfig = {
 let auth = null;
 let firestore = null;
 let firebaseReady = false;
+let initAttempts = 0;
 
 function initializeFirebase() {
     try {
+        // Check that all Firebase modules are loaded
         if (!window.firebase) {
-            console.warn('Firebase SDK not loaded yet, retrying...');
-            setTimeout(initializeFirebase, 100);
-            return;
+            console.warn('⏳ Firebase SDK not loaded yet, retrying... (attempt ' + (++initAttempts) + ')');
+            setTimeout(initializeFirebase, 150);
+            return false;
         }
-        if (firebaseReady) return; // Already initialized
         
-        firebase.initializeApp(firebaseConfig);
+        if (!window.firebase.auth || !window.firebase.firestore) {
+            console.warn('⏳ Firebase modules (auth/firestore) not ready, retrying...');
+            setTimeout(initializeFirebase, 150);
+            return false;
+        }
+        
+        if (firebaseReady) return true; // Already initialized
+        
+        // Try to initialize only if not already initialized
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (e) {
+            // App already initialized, get the existing instances
+            if (e.code !== 'app/duplicate-app') {
+                throw e;
+            }
+        }
+        
         auth = firebase.auth();
         firestore = firebase.firestore();
         firebaseReady = true;
+        
         console.log('✓ Firebase initialized successfully');
+        console.log('  - Auth module:', !!auth);
+        console.log('  - Firestore module:', !!firestore);
+        console.log('  - Auth ready:', firebase.auth() !== undefined);
         return true;
     } catch (error) {
-        console.error('Firebase initialization failed:', error.message);
+        console.error('Firebase initialization error:', error.message);
         // Retry in 500ms
         setTimeout(initializeFirebase, 500);
         return false;
@@ -43,7 +65,7 @@ function initializeFirebase() {
 }
 
 // Initialize on script load with small delay to ensure compat libs are ready
-setTimeout(initializeFirebase, 100);
+setTimeout(initializeFirebase, 250);
 
 let currentUser = null;
 let autoSyncEnabled = false; // Automatic sync flag
@@ -56,13 +78,14 @@ let autoSyncEnabled = false; // Automatic sync flag
 async function signUpTeacher(email, password, teacherProfile) {
     // Wait for Firebase to be ready (with timeout)
     let retries = 0;
-    while (!firebaseReady && retries < 50) {
+    while (!firebaseReady && retries < 100) { // Up to 10 seconds
         await new Promise(resolve => setTimeout(resolve, 100));
         retries++;
     }
     
     if (!auth || !firestore) {
-        return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
+        console.error('Firebase still not initialized after wait. auth:', !!auth, 'firestore:', !!firestore);
+        return { success: false, error: 'Firebase not initialized. Please refresh the page and try again.' };
     }
     
     try {
@@ -101,13 +124,14 @@ async function signUpTeacher(email, password, teacherProfile) {
 async function loginTeacher(email, password) {
     // Wait for Firebase to be ready (with timeout)
     let retries = 0;
-    while (!firebaseReady && retries < 50) {
+    while (!firebaseReady && retries < 100) { // Up to 10 seconds
         await new Promise(resolve => setTimeout(resolve, 100));
         retries++;
     }
     
     if (!auth || !firestore) {
-        return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
+        console.error('Firebase still not initialized after wait. auth:', !!auth, 'firestore:', !!firestore);
+        return { success: false, error: 'Firebase not initialized. Please refresh the page and try again.' };
     }
     
     try {
