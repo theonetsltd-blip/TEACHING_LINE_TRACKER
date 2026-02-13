@@ -1,9 +1,10 @@
 /**
  * service-worker.js - Service Worker for PWA Offline Support
  * Handles caching and offline functionality
+ * IMPORTANT: Firebase and external APIs are NOT cached (always fresh)
  */
 
-const CACHE_NAME = 'teaching-progress-v18';
+const CACHE_NAME = 'teaching-progress-v19';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
@@ -11,6 +12,8 @@ const URLS_TO_CACHE = [
     '/js/app.js',
     '/js/ui.js',
     '/js/db.js',
+    '/js/security.js',
+    '/js/firebase-config.js',
     '/manifest.json'
 ];
 
@@ -65,21 +68,45 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // Skip external requests
-    if (url.origin !== location.origin) {
+    // CRITICAL: Allow Firebase and external APIs to always use network
+    // Firebase Cloud Firestore MUST use network for real-time sync
+    // Do NOT cache Firebase requests
+    const isFirebaseRequest = url.hostname.includes('firebasejs') || 
+                              url.hostname.includes('firebaseapp.com') ||
+                              url.hostname.includes('firestore.googleapis.com');
+    
+    if (isFirebaseRequest) {
+        console.log('[Service Worker] Allowing network access for Firebase:', request.url);
+        event.respondWith(
+            fetch(request)
+                .catch((error) => {
+                    console.error('[Service Worker] Firebase fetch failed:', error);
+                    // Return error response - app handles Firebase unavailability
+                    return new Response(
+                        JSON.stringify({ error: 'Firebase unavailable - working offline' }),
+                        {
+                            status: 0,
+                            statusText: 'Offline',
+                            headers: new Headers({
+                                'Content-Type': 'application/json'
+                            })
+                        }
+                    );
+                })
+        );
         return;
     }
     
     event.respondWith(
         caches.match(request)
             .then((response) => {
-                // Return cached response if available
+                // Return cached response if available (for local assets only)
                 if (response) {
                     console.log('[Service Worker] Served from cache:', request.url);
                     return response;
                 }
                 
-                // Fetch from network
+                // For external non-Firebase requests, try network first
                 return fetch(request)
                     .then((networkResponse) => {
                         // Don't cache if not a success response
@@ -90,7 +117,7 @@ self.addEventListener('fetch', (event) => {
                         // Clone the response
                         const responseToCache = networkResponse.clone();
                         
-                        // Cache the new response
+                        // Cache the new response (for future offline use)
                         caches.open(CACHE_NAME)
                             .then((cache) => {
                                 cache.put(request, responseToCache);
@@ -104,18 +131,26 @@ self.addEventListener('fetch', (event) => {
                     .catch((error) => {
                         console.error('[Service Worker] Fetch error:', error);
                         
-                        // Serve offline page or cached fallback
-                        // For now, just return the error
-                        return new Response(
-                            'Network request failed and no cache available',
-                            {
-                                status: 503,
-                                statusText: 'Service Unavailable',
-                                headers: new Headers({
-                                    'Content-Type': 'text/plain'
-                                })
-                            }
-                        );
+                        // Try to serve from cache as fallback
+                        return caches.match(request)
+                            .then((cachedResponse) => {
+                                if (cachedResponse) {
+                                    console.log('[Service Worker] Serving cached fallback:', request.url);
+                                    return cachedResponse;
+                                }
+                                
+                                // No cache available
+                                return new Response(
+                                    'Offline - Resource not available',
+                                    {
+                                        status: 503,
+                                        statusText: 'Service Unavailable',
+                                        headers: new Headers({
+                                            'Content-Type': 'text/plain'
+                                        })
+                                    }
+                                );
+                            });
                     });
             })
     );
@@ -130,4 +165,4 @@ self.addEventListener('message', (event) => {
     }
 });
 
-console.log('[Service Worker] Loaded');
+console.log('[Service Worker] Loaded - Firebase requests bypass cache for real-time sync');

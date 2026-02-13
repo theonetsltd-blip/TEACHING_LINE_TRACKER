@@ -5,10 +5,16 @@
 
 // Initialize app on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('App initializing...');
+    console.log('🚀 App initializing...');
     
     try {
+        // Check if we're in standalone mode (PWA)
+        const isStandalone = window.navigator.standalone === true || 
+                            window.matchMedia('(display-mode: standalone)').matches;
+        console.log(isStandalone ? '📱 Running as PWA (standalone)' : '🌐 Running in browser');
+        
         // Wait for ui.js to load
+        console.log('⏳ Waiting for UI module to load...');
         await new Promise(resolve => {
             if (typeof getProfile === 'function') {
                 resolve();
@@ -19,27 +25,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                         resolve();
                     }
                 }, 50);
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    console.error('UI module did not load within 5 seconds');
+                    resolve();
+                }, 5000);
             }
         });
         
         // Hide main content initially
         const mainContent = document.querySelector('.main-content');
+        if (!mainContent) {
+            console.error('❌ ERROR: main-content element not found in DOM!');
+            alert('Critical Error: App structure not loaded. Please refresh.');
+            return;
+        }
         mainContent.classList.remove('visible');
         
         // Check session validity first
-        const hasValidSession = isSessionValid();
-        const profile = getProfile();
+        const hasValidSession = typeof isSessionValid === 'function' ? isSessionValid() : false;
+        const profile = typeof getProfile === 'function' ? getProfile() : null;
         
         if (hasValidSession && profile && profile.teacherName) {
             // Valid session exists - show content
             console.log('✓ Valid session found. Loading app...');
             document.getElementById('authLanding').style.display = 'none';
             mainContent.classList.add('visible');
-            updateHeaderWithTeacherInfo();
+            if (typeof updateHeaderWithTeacherInfo === 'function') {
+                updateHeaderWithTeacherInfo();
+            }
         } else if (profile && profile.teacherName && !hasValidSession) {
             // Profile exists but session invalid - show login
             console.log('⚠️ Session expired. Requiring login...');
-            clearSession();
+            if (typeof clearSession === 'function') {
+                clearSession();
+            }
             document.getElementById('authLanding').style.display = 'flex';
         } else {
             // No profile - show auth landing page
@@ -48,27 +69,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // Initialize database
+        console.log('💾 Initializing IndexedDB...');
         await initDB();
+        console.log('✓ Database initialized');
         
         // Check if database is empty and seed if needed
         const isEmpty = await isDatabaseEmpty();
         const allLessons = await getAllLessons();
+        console.log(`📊 Database status: ${allLessons.length} topics found`);
         
         // If database is empty OR has only old 13 topics, reseed
         if (isEmpty || allLessons.length < 50) {
-            console.log(`Database has ${allLessons.length} topics. Expected 55+. Reseeding...`);
+            console.log(`🔄 Database has ${allLessons.length} topics. Expected 55+. Reseeding...`);
             
             // Clear old data first if it exists
             if (allLessons.length > 0 && allLessons.length < 50) {
-                console.log('Clearing old curriculum data...');
+                console.log('🗑️  Clearing old curriculum data...');
                 await clearAllLessons();
             }
             
-            console.log('Seeding 55-topic curriculum...');
+            console.log('📚 Seeding 55-topic curriculum...');
             await seedInitialLessons();
-            console.log('Seed complete!');
+            console.log('✓ Seed complete!');
         } else if (allLessons.length > 60) {
-            console.warn(`Database has ${allLessons.length} topics - possible duplicates!`);
+            console.warn(`⚠️  Database has ${allLessons.length} topics - possible duplicates!`);
             // Detect and remove duplicates by topic name
             const seen = {};
             const duplicates = [];
@@ -81,23 +105,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             if (duplicates.length > 0) {
-                console.log(`Found ${duplicates.length} duplicates, removing...`);
+                console.log(`🔍 Found ${duplicates.length} duplicates, removing...`);
                 for (const id of duplicates) {
                     await deleteLessonFromDB(id);
                 }
-                console.log('Duplicates removed!');
+                console.log('✓ Duplicates removed!');
             }
         } else {
-            console.log(`Database loaded: ${allLessons.length} topics found ✓`);
+            console.log(`✓ Database loaded: ${allLessons.length} topics found`);
         }
         
         // Render all columns
+        console.log('🎨 Rendering Kanban board...');
         await renderAllColumns();
         
-        console.log('App initialized successfully');
+        console.log('✅ App initialized successfully');
     } catch (error) {
-        console.error('App initialization error:', error);
+        console.error('❌ App initialization error:', error);
+        console.error('Stack trace:', error.stack);
         alert('Error initializing app. Please refresh the page or open reset-db.html');
+
     }
 });
 

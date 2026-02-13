@@ -3,7 +3,15 @@
  * Handles DOM updates and user interactions
  */
 
-// Modal management
+// Safety check - ensure DOM is ready and accessible
+if (!document.body) {
+    console.error('❌ CRITICAL ERROR: DOM not ready when ui.js loaded');
+    throw new Error('DOM not ready - ui.js loaded before body element');
+}
+
+console.log('📄 UI module loading... checking DOM elements');
+
+// Modal management - with null safety
 const lessonModal = document.getElementById('lessonModal');
 const lessonForm = document.getElementById('lessonForm');
 const modalTitle = document.getElementById('modalTitle');
@@ -148,7 +156,7 @@ let currentEditingLessonId = null;
 let currentDeletingLessonId = null;
 let selectedSubject = null;
 
-// ========================
+console.log('✓ UI module DOM elements loaded');// ========================
 // INTERNET CONNECTION DETECTION
 // ========================
 

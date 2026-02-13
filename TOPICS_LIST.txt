@@ -1,0 +1,137 @@
+# 55-TOPIC CURRICULUM LIST
+## VETA Level One - Basic Computer Knowledge (1 Year)
+
+---
+
+## PHASE 1: COMPUTER FOUNDATIONS (Weeks 1-8)
+1. History and Evolution of Computers (W1) - 5 periods
+2. Types of Computers (W2) - 5 periods
+3. Uses of Computers in Daily Life & Work (W3) - 4 periods
+4. Internal Hardware (CPU, RAM, Motherboard) (W4) - 5 periods
+5. Input Devices (Keyboard, Mouse, Scanner) (W5) - 5 periods
+6. Output Devices (Monitor, Printer, Speaker) (W6) - 4 periods
+7. Storage Devices (HDD, SSD, Flash Disk, Memory Card) (W7) - 5 periods
+8. Computer System Overview (W8) - 4 periods
+
+---
+
+## PHASE 2: SOFTWARE & OPERATING SYSTEMS (Weeks 9-18)
+9. What is Software (W9) - 4 periods
+10. Types of Software (System vs Application) (W10) - 5 periods
+11. Introduction to Operating Systems (W11) - 5 periods
+12. Types of Operating Systems (Windows, Linux, Mobile OS) (W12) - 5 periods
+13. Booting Process & Desktop Environment (W13) - 4 periods
+14. Using Keyboard & Mouse (Practical) (W14) - 6 periods
+15. Windows Desktop & Taskbar (W15) - 5 periods
+16. File and Folder Management (W16) - 6 periods
+17. Installing & Uninstalling Software (W17) - 5 periods
+18. Basic System Settings & Control Panel (W18) - 5 periods
+
+---
+
+## PHASE 3: OFFICE APPLICATIONS (Weeks 19-28)
+19. Introduction to Word Processing (W19) - 4 periods
+20. Microsoft Word Interface (W20) - 5 periods
+21. Creating & Saving Documents (W21) - 5 periods
+22. Text Formatting (Fonts, Paragraphs) (W22) - 6 periods
+23. Page Layout (Margins, Orientation) (W23) - 5 periods
+24. Tables, Images & Lists in Word (W24) - 6 periods
+25. Practical Typing Skills (W25) - 6 periods
+26. Creating Simple Documents (Letters, Reports) (W26) - 6 periods
+27. Printing Documents (W27) - 4 periods
+28. Microsoft Word Review & Assessment (W28) - 5 periods
+
+---
+
+## PHASE 4: INTERNET & COMMUNICATION (Weeks 29-36)
+29. Introduction to Internet (W29) - 5 periods
+30. Internet Services (WWW, Email, FTP) (W30) - 5 periods
+31. Web Browsers (Chrome, Firefox) (W31) - 5 periods
+32. Searching Information Online (W32) - 5 periods
+33. Email Creation & Use (W33) - 6 periods
+34. Online Safety & Digital Etiquette (W34) - 5 periods
+35. Social Media Basics (Educational Use) (W35) - 4 periods
+36. Online Forms & Applications (W36) - 4 periods
+
+---
+
+## PHASE 5: COMPUTER SAFETY & MAINTENANCE (Weeks 37-44)
+37. Computer Health & Safety (W37) - 4 periods
+38. Ergonomics (Correct Sitting & Usage) (W38) - 4 periods
+39. Computer Viruses & Malware (W39) - 5 periods
+40. Antivirus Software (W40) - 4 periods
+41. Data Backup & Recovery (W41) - 5 periods
+42. Basic Computer Maintenance (W42) - 5 periods
+43. Cleaning & Handling Equipment (W43) - 4 periods
+44. Power Problems & Protection (UPS) (W44) - 4 periods
+
+---
+
+## PHASE 6: DIGITAL SKILLS & CAREER AWARENESS (Weeks 45-52)
+45. Introduction to ICT Careers (W45) - 5 periods
+46. Using Computers in Business (W46) - 5 periods
+47. Basic Digital Records (W47) - 5 periods
+48. Introduction to Spreadsheets (Concept Only) (W48) - 4 periods
+49. Simple Data Entry Skills (W49) - 5 periods
+50. ICT Ethics & Laws (W50) - 4 periods
+51. Revision (Theory) (W51) - 6 periods
+52. Practical Assessment (W52) - 6 periods
+
+---
+
+## ENRICHMENT TOPICS (Optional, Non-Sequential)
+53. Introduction to Smartphones & Mobile Apps - 4 periods
+54. Cloud Storage Basics (Google Drive) - 5 periods
+55. Introduction to Coding (Concept Only) - 4 periods
+56. Introduction to Computer Networking (Concepts) - 5 periods
+57. Introduction to PWAs (Concept Demonstration) - 4 periods
+
+---
+
+## STATISTICS
+
+| Category | Count |
+|----------|-------|
+| Phase 1 Topics | 8 |
+| Phase 2 Topics | 10 |
+| Phase 3 Topics | 10 |
+| Phase 4 Topics | 8 |
+| Phase 5 Topics | 8 |
+| Phase 6 Topics | 8 |
+| **Core Topics Total** | **52** |
+| Enrichment Topics | 5 |
+| **GRAND TOTAL** | **57** |
+| | |
+| Core Curriculum Weeks | 52 |
+| Core Curriculum Periods | ~253 |
+| Avg Periods/Topic | 4.9 |
+
+---
+
+## NOTES
+
+✅ **All 55 topics are pre-loaded in the Teaching Progress Tracker app**
+
+✅ **Each topic configured with:**
+- Week assignment (1-52 for core, null for enrichment)
+- Initial periods planned (4-6)
+- Status: "Not Started"
+- Phase/remarks for organization
+
+✅ **To Use:**
+1. Open `reset-db.html` to load the curriculum
+2. Access `index.html` to start tracking progress
+3. Refer to `CURRICULUM_GUIDE.md` for detailed content
+4. Use `QUICK_START.md` for instructions
+
+✅ **Recommended Pacing:**
+- Core curriculum: 52 weeks (1 academic year)
+- Enrichment topics: Beyond core curriculum (stretch content)
+- Final assessment: Week 52
+
+---
+
+**Created:** February 2026  
+**Curriculum Level:** VETA Level One (Vocational Training)  
+**Institution:** Vocational Training Schools, Tanzania  
+**Duration:** 1 Year (52 weeks core + optional enrichment)
