@@ -75,6 +75,11 @@ async function saveLessonToDB(lesson) {
 // Get all lessons
 async function getAllLessons() {
     return new Promise((resolve, reject) => {
+        if (!db) {
+            console.warn('⚠️ Database not initialized yet');
+            resolve([]);
+            return;
+        }
         const transaction = db.transaction([STORE_NAME], 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.getAll();

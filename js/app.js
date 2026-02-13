@@ -359,7 +359,9 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         // Re-render when user returns to tab
         // This ensures latest data is displayed
-        renderAllColumns().catch(err => console.error('Error re-rendering:', err));
+        if (typeof renderAllColumns === 'function') {
+            renderAllColumns().catch(err => console.error('Error re-rendering:', err));
+        }
     }
 });
 

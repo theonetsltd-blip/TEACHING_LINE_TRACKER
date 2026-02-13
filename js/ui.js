@@ -130,6 +130,7 @@ const topicsListContainer = document.getElementById('topicsListContainer');
 const subjectSelectionModal = document.getElementById('subjectSelectionModal');
 const subjectGrid = document.getElementById('subjectGrid');
 const submitSubjectBtn = document.getElementById('submitSubjectBtn');
+const closeSubjectSelectionBtn = document.getElementById('closeSubjectSelectionBtn');
 
 // Vocational subjects list
 const vocationalSubjects = [
@@ -1927,6 +1928,12 @@ loadTopicsBtn.addEventListener('click', openLoadTopicsModal);
 viewTopicsBtn.addEventListener('click', openViewTopicsModal);
 closeViewTopicsModalBtn.addEventListener('click', closeViewTopicsModal);
 closeViewTopicsBtn.addEventListener('click', closeViewTopicsModal);
+
+// Subject Selection close button
+closeSubjectSelectionBtn.addEventListener('click', () => {
+    subjectSelectionModal.style.display = 'none';
+    selectedSubject = null;
+});
 
 // Topics search
 topicsSearchInput.addEventListener('input', (e) => {
