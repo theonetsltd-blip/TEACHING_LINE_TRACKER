@@ -25,6 +25,21 @@ const loginTeacherNameInput = document.getElementById('loginTeacherName');
 const loginPasswordInput = document.getElementById('loginPassword');
 const backLoginBtn = document.getElementById('backLoginBtn');
 const backFromLoginBtn = document.getElementById('backFromLoginBtn');
+const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+
+const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+const closeForgotPasswordBtn = document.getElementById('closeForgotPasswordBtn');
+const resetVerificationStep = document.getElementById('resetVerificationStep');
+const resetPasswordStep = document.getElementById('resetPasswordStep');
+const resetTeacherName = document.getElementById('resetTeacherName');
+const resetVerificationMethod = document.getElementById('resetVerificationMethod');
+const resetVerificationValue = document.getElementById('resetVerificationValue');
+const resetVerifyBtn = document.getElementById('resetVerifyBtn');
+const resetBackBtn = document.getElementById('resetBackBtn');
+const resetBackToVerifyBtn = document.getElementById('resetBackToVerifyBtn');
+const resetNewPassword = document.getElementById('resetNewPassword');
+const resetConfirmPassword = document.getElementById('resetConfirmPassword');
+const resetSubmitBtn = document.getElementById('resetSubmitBtn');
 
 const createProfileModal = document.getElementById('createProfileModal');
 const profileForm = document.getElementById('profileForm');
@@ -56,6 +71,19 @@ const changePasswordForm = document.getElementById('changePasswordForm');
 const currentPasswordInput = document.getElementById('currentPassword');
 const newPasswordInput = document.getElementById('newPassword');
 const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
+
+// Profile Settings Modal
+const profileSettingsModal = document.getElementById('profileSettingsModal');
+const closeProfileSettingsBtn = document.getElementById('closeProfileSettingsBtn');
+const backProfileSettingsBtn = document.getElementById('backProfileSettingsBtn');
+const editNameBtn = document.getElementById('editNameBtn');
+const editPhoneBtn = document.getElementById('editPhoneBtn');
+const viewTopicListBtn = document.getElementById('viewTopicListBtn');
+const deleteTopicBtn = document.getElementById('deleteTopicBtn');
+const nextPeriodBtn = document.getElementById('nextPeriodBtn');
+const displayTeacherName = document.getElementById('displayTeacherName');
+const displaySubject = document.getElementById('displaySubject');
+const displayPhone = document.getElementById('displayPhone');
 
 const deleteModal = document.getElementById('deleteModal');
 const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
@@ -90,9 +118,161 @@ const closeViewTopicsBtn = document.getElementById('closeViewTopicsBtn');
 const topicsSearchInput = document.getElementById('topicsSearchInput');
 const topicsListContainer = document.getElementById('topicsListContainer');
 
+// Subject Selection Modal
+const subjectSelectionModal = document.getElementById('subjectSelectionModal');
+const subjectGrid = document.getElementById('subjectGrid');
+const submitSubjectBtn = document.getElementById('submitSubjectBtn');
+
+// Vocational subjects list
+const vocationalSubjects = [
+    'Basic Computer Knowledge',
+    'ICT/Information Technology',
+    'Domestic Electric',
+    'Mechanic',
+    'Driving',
+    'Mathematics Basic',
+    'English',
+    'Technical Drawing',
+    'Building Construction',
+    'Welding & Metal Works',
+    'Plumbing & Pipe Fitting',
+    'Carpentry & Joinery',
+    'Hair & Beauty',
+    'Hospitality Management',
+    'Agriculture',
+    'Tailoring & Dressmaking'
+];
+
 // Global state for editing
 let currentEditingLessonId = null;
 let currentDeletingLessonId = null;
+let selectedSubject = null;
+
+// ========================
+// INTERNET CONNECTION DETECTION
+// ========================
+
+let isOnline = navigator.onLine;
+const connectionStatus = document.getElementById('connectionStatus');
+const connectionIndicator = document.getElementById('connectionIndicator');
+const connectionText = document.getElementById('connectionText');
+const syncIndicator = document.getElementById('syncIndicator');
+const syncStatus = document.getElementById('syncStatus');
+const headerSyncStatus = document.getElementById('headerSyncStatus');
+const headerSyncText = document.getElementById('headerSyncText');
+
+let syncTimeout = null;
+
+// Show sync indicator with status message
+function showSyncIndicator(message = '☁️ Syncing data...') {
+    syncStatus.textContent = message;
+    headerSyncText.textContent = message;
+    syncIndicator.style.display = 'block';
+    headerSyncStatus.style.display = 'block';
+    
+    // Clear previous timeout
+    if (syncTimeout) clearTimeout(syncTimeout);
+    
+    // Auto-hide after 3 seconds
+    syncTimeout = setTimeout(() => {
+        syncIndicator.style.animation = 'slideOut 0.3s ease-out forwards';
+        headerSyncStatus.style.opacity = '0.5';
+        setTimeout(() => {
+            syncIndicator.style.display = 'none';
+            syncIndicator.style.animation = 'slideIn 0.3s ease-out';
+            headerSyncStatus.style.display = 'none';
+            headerSyncStatus.style.opacity = '1';
+        }, 300);
+    }, 3000);
+}
+
+function updateConnectionStatus() {
+    isOnline = navigator.onLine;
+    
+    if (isOnline) {
+        connectionStatus.style.background = '#4CAF50';
+        connectionIndicator.textContent = '●';
+        connectionIndicator.style.color = '#4CAF50';
+        connectionText.textContent = 'Online';
+        
+        // Auto-sync when connection restored
+        syncPendingData();
+    } else {
+        connectionStatus.style.background = '#f44336';
+        connectionIndicator.textContent = '●';
+        connectionIndicator.style.color = '#f44336';
+        connectionText.textContent = 'Offline';
+    }
+}
+
+// Listen for connection changes
+window.addEventListener('online', updateConnectionStatus);
+window.addEventListener('offline', updateConnectionStatus);
+
+// Initialize connection status
+updateConnectionStatus();
+
+// Function to sync pending data when coming online
+async function syncPendingData() {
+    if (isOnline && getCurrentUser()) {
+        try {
+            console.log('Syncing pending data...');
+            showSyncIndicator('⏳ Syncing after reconnect...');
+            await smartSync();
+            showSyncIndicator('✅ Sync complete!');
+        } catch (error) {
+            console.log('Sync error:', error);
+            showSyncIndicator('❌ Sync failed');
+        }
+    }
+}
+
+function renderSubjectSelection() {
+    subjectGrid.innerHTML = '';
+    vocationalSubjects.forEach(subject => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'subject-btn';
+        button.textContent = subject;
+        button.dataset.subject = subject;
+        button.style.cssText = `
+            padding: var(--spacing-lg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        `;
+        
+        button.addEventListener('click', () => {
+            // Remove previous selection
+            document.querySelectorAll('.subject-btn').forEach(btn => {
+                btn.style.borderColor = 'var(--border-color)';
+                btn.style.background = 'white';
+                btn.style.color = 'black';
+            });
+            // Highlight selected
+            button.style.borderColor = '#2c3e50';
+            button.style.background = '#2c3e50';
+            button.style.color = 'white';
+            selectedSubject = subject;
+        });
+        
+        subjectGrid.appendChild(button);
+    });
+}
+
+function openSubjectSelectionModal() {
+    renderSubjectSelection();
+    createProfileModal.style.display = 'none';
+    subjectSelectionModal.style.display = 'flex';
+    selectedSubject = null;
+}
+
+function closeSubjectSelectionModal() {
+    subjectSelectionModal.style.display = 'none';
+}
 
 // ========================
 // VIEW TOPICS MODAL CONTROLS
@@ -190,6 +370,21 @@ function openSettingsModal() {
 
 function closeSettingsModal() {
     settingsModal.style.display = 'none';
+}
+
+function openProfileSettingsModal() {
+    const profile = getProfile();
+    if (profile) {
+        displayTeacherName.textContent = profile.teacherName || '-';
+        displaySubject.textContent = profile.subjectName || '-';
+        displayPhone.textContent = profile.phone || '-';
+    }
+    profileSettingsModal.style.display = 'flex';
+    settingsModal.style.display = 'none';
+}
+
+function closeProfileSettingsModal() {
+    profileSettingsModal.style.display = 'none';
 }
 
 function openLoadTopicsModal() {
@@ -546,7 +741,7 @@ async function exportToPDF() {
 </head>
 <body>
     <h1>📚 Teaching Progress Summary Report</h1>
-    <p><strong>School:</strong> Vocational Training School, Tanzania | <strong>Course:</strong> BCK Level One</p>
+    <p><strong>School:</strong> Vocational Training Followup, Tanzania</p>
     <p><strong>Generated:</strong> ${today}</p>
     
     <div class="summary">
@@ -686,8 +881,10 @@ closeLoadTopicsBtn.addEventListener('click', closeLoadTopicsModalFunc);
 loadDefaultTopicsFormBtn.addEventListener('click', async () => {
     closeLoadTopicsModalFunc();
     if (confirm('Load standard curriculum? This will add topics to your current list.')) {
+        showSyncIndicator('⏳ Loading curriculum...');
         await seedInitialLessons();
         await renderAllColumns();
+        showSyncIndicator('✅ Curriculum loaded!');
         alert('Standard curriculum loaded!');
     }
 });
@@ -700,7 +897,9 @@ loadFromFileBtn.addEventListener('click', () => {
         const file = e.target.files[0];
         if (file) {
             const text = await file.text();
+            showSyncIndicator('⏳ Importing topics...');
             await importTopicsFromCSV(text);
+            showSyncIndicator('✅ Topics imported!');
             closeLoadTopicsModalFunc();
         }
     };
@@ -746,79 +945,472 @@ exportBtn.addEventListener('click', openExportModal);
 // Settings button
 settingsBtn.addEventListener('click', openSettingsModal);
 
+// Profile Settings Modal
+editProfileBtn.addEventListener('click', openProfileSettingsModal);
+closeProfileSettingsBtn.addEventListener('click', closeProfileSettingsModal);
+backProfileSettingsBtn.addEventListener('click', () => {
+    closeProfileSettingsModal();
+    openSettingsModal();
+});
+
+// Edit Name
+editNameBtn.addEventListener('click', () => {
+    const profile = getProfile();
+    const newName = prompt('Enter new teacher name:', profile.teacherName);
+    if (newName && newName.trim()) {
+        profile.teacherName = newName.trim();
+        saveProfile(profile);
+        displayTeacherName.textContent = newName;
+        updateHeaderWithTeacherInfo();
+        alert('✅ Name updated successfully!');
+    }
+});
+
+// Edit Phone
+editPhoneBtn.addEventListener('click', () => {
+    const profile = getProfile();
+    const newPhone = prompt('Enter new phone number:', profile.phone || '');
+    if (newPhone !== null) {
+        profile.phone = newPhone;
+        saveProfile(profile);
+        displayPhone.textContent = newPhone || '-';
+        alert('✅ Phone number updated successfully!');
+    }
+});
+
+// View Topic List
+viewTopicListBtn.addEventListener('click', () => {
+    closeProfileSettingsModal();
+    openViewTopicsModal();
+});
+
+// Delete Topic
+deleteTopicBtn.addEventListener('click', async () => {
+    const lessons = await getAllLessons();
+    if (lessons.length === 0) {
+        alert('No topics to delete!');
+        return;
+    }
+    
+    // Create a modal dialog for topic selection
+    const deleteDialog = document.createElement('div');
+    deleteDialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    const dialogContent = document.createElement('div');
+    dialogContent.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 500px;
+        max-height: 70vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    `;
+    
+    let dialogHTML = `<h2 style="margin-top: 0;">Delete Topics</h2>
+    <p style="color: #666; margin-bottom: 15px;">Select topics to delete or delete all:</p>
+    <div style="margin-bottom: 20px;">`;
+    
+    // Add delete all option
+    dialogHTML += `
+        <button id="deleteAllBtn" style="
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 2px solid #e74c3c;
+            background: #fff;
+            color: #e74c3c;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        " onmouseover="this.style.background='#ffe6e6'" onmouseout="this.style.background='#fff'">
+        🗑️ DELETE ALL TOPICS
+        </button>
+    `;
+    
+    // Add individual topics
+    dialogHTML += `<p style="font-size: 0.9rem; color: #999; margin: 15px 0 10px 0;">Or select individual topics:</p>`;
+    lessons.forEach((lesson, i) => {
+        dialogHTML += `
+            <button class="topic-delete-btn" data-id="${lesson.id}" data-topic="${lesson.topic}" style="
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 8px;
+                border: 1px solid #ddd;
+                background: #f9f9f9;
+                border-radius: 4px;
+                cursor: pointer;
+                text-align: left;
+                transition: 0.2s;
+            " onmouseover="this.style.background='#ffe6e6'; this.style.borderColor='#e74c3c';" onmouseout="this.style.background='#f9f9f9'; this.style.borderColor='#ddd';">
+            ${i+1}. ${lesson.topic}
+            </button>
+        `;
+    });
+    
+    dialogHTML += `</div>
+    <button id="closeDeleteDialogBtn" style="
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #bbb;
+        background: #f0f0f0;
+        border-radius: 4px;
+        cursor: pointer;
+    ">Cancel</button>`;
+    
+    dialogContent.innerHTML = dialogHTML;
+    deleteDialog.appendChild(dialogContent);
+    document.body.appendChild(deleteDialog);
+    
+    // Delete All handler
+    document.getElementById('deleteAllBtn').addEventListener('click', async () => {
+        if (confirm('⚠️ Delete ALL topics? This cannot be undone!')) {
+            for (const lesson of lessons) {
+                await deleteLessonFromDB(lesson.id);
+                if (isOnline && getCurrentUser()) {
+                    await deleteLessonFromCloud(lesson.id);
+                }
+            }
+            await renderAllColumns();
+            document.body.removeChild(deleteDialog);
+            alert('✅ All topics deleted!');
+            closeProfileSettingsModal();
+        }
+    });
+    
+    // Individual topic delete handlers
+    document.querySelectorAll('.topic-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const topicId = btn.dataset.id;
+            const topicName = btn.dataset.topic;
+            
+            if (confirm(`Delete "${topicName}"?`)) {
+                await deleteLessonFromDB(parseInt(topicId));
+                if (isOnline && getCurrentUser()) {
+                    await deleteLessonFromCloud(parseInt(topicId));
+                }
+                btn.style.opacity = '0.5';
+                btn.style.textDecoration = 'line-through';
+                btn.disabled = true;
+                alert('✅ Topic deleted!');
+                
+                // Refresh after a short delay
+                setTimeout(async () => {
+                    await renderAllColumns();
+                    document.body.removeChild(deleteDialog);
+                    closeProfileSettingsModal();
+                }, 500);
+            }
+        });
+    });
+    
+    // Close dialog handler
+    document.getElementById('closeDeleteDialogBtn').addEventListener('click', () => {
+        document.body.removeChild(deleteDialog);
+    });
+    
+    // Close dialog when clicking outside
+    deleteDialog.addEventListener('click', (e) => {
+        if (e.target === deleteDialog) {
+            document.body.removeChild(deleteDialog);
+        }
+    });
+});
+
+// Next Period Schedule
+nextPeriodBtn.addEventListener('click', () => {
+    const period = prompt('Enter next period schedule (e.g., Week 5 - Topic: Basic Computer):', '');
+    if (period && period.trim()) {
+        const profile = getProfile();
+        profile.nextPeriod = period;
+        saveProfile(profile);
+        alert('✅ Schedule updated successfully!');
+    }
+});
+
 // Auth Landing
 loginBtn.addEventListener('click', showLoginModal);
 createProfileBtn.addEventListener('click', showCreateProfileModal);
 
 // Login Form
-loginForm.addEventListener('submit', (e) => {
+loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
     const name = loginTeacherNameInput.value.trim();
     const password = loginPasswordInput.value.trim();
     
-    if (!name || !password) {
-        alert('Please enter both Teacher Name and Password!');
+    // Use security module to validate and check rate limits
+    const securityCheck = secureLogin(name, password);
+    if (!securityCheck.success) {
+        alert('❌ ' + securityCheck.error);
+        recordFailedLogin();
+        loginPasswordInput.value = '';
         return;
     }
     
+    const validatedName = securityCheck.validatedUsername;
+    
+    try {
+        // Try to login with Firebase first (for new cloud-based logins)
+        const email = `${validatedName.toLowerCase().replace(/\s+/g, '.')}@teaching.local`;
+        const firebaseResult = await loginTeacher(email, password);
+        
+        if (firebaseResult.success) {
+            // Firebase login successful - pull data from cloud
+            await clearAllLessons();
+            await pullCloudDataToLocal();
+            
+            // Create secure session
+            createSecureSession(validatedName, firebaseResult.uid);
+            
+            // Save profile locally
+            const profile = {
+                teacherName: validatedName,
+                email: email,
+                uid: firebaseResult.uid
+            };
+            saveProfile(profile);
+            
+            // Record successful login
+            recordSuccessfulLogin();
+            
+            // MANDATORY: Start automatic cloud sync
+            console.log('🔄 Starting MANDATORY cloud sync on login...');
+            await startAutoSync();
+            
+            // Show main content
+            const mainContent = document.querySelector('.main-content');
+            mainContent.classList.add('visible');
+            updateHeaderWithTeacherInfo();
+            loginModal.style.display = 'none';
+            authLanding.style.display = 'none';
+            
+            await renderAllColumns();
+            alert('✅ Welcome back! Cloud sync enabled - your data is synchronized.');
+            loginForm.reset();
+            return;
+        }
+    } catch (error) {
+        console.log('Cloud login failed, trying local login...');
+    }
+    
+    // Fallback to local login (for backward compatibility)
     const profile = getProfile();
     if (!profile) {
-        alert('No profiles found. Please create a profile first.');
+        recordFailedLogin();
+        alert('❌ No profiles found. Please create a profile first.');
         showAuthLanding();
         return;
     }
     
-    if (profile.teacherName === name && profile.password === password) {
-        // Valid login
+    // Verify credentials match stored profile (case-sensitive for password)
+    if (profile.teacherName === validatedName && profile.password === password) {
+        // Valid local login
+        createSecureSession(validatedName, profile.uid || 'local');
+        recordSuccessfulLogin();
+        
         const mainContent = document.querySelector('.main-content');
         mainContent.classList.add('visible');
         updateHeaderWithTeacherInfo();
         loginModal.style.display = 'none';
         authLanding.style.display = 'none';
-        alert('Welcome back, ' + name + '!');
+        alert('✅ Welcome back, ' + validatedName + '!');
+        loginForm.reset();
     } else {
-        alert('Invalid Teacher Name or Password. Please try again.');
+        recordFailedLogin();
+        alert('❌ Invalid Teacher Name or Password. Please try again.');
+        loginPasswordInput.value = '';
     }
 });
 
 backLoginBtn.addEventListener('click', showAuthLanding);
 backFromLoginBtn.addEventListener('click', showAuthLanding);
 
+// ========================
+// PASSWORD RESET
+// ========================
+
+function openForgotPasswordModal() {
+    loginModal.style.display = 'none';
+    forgotPasswordModal.style.display = 'flex';
+    resetTeacherName.focus();
+}
+
+function closeForgotPasswordModal() {
+    forgotPasswordModal.style.display = 'none';
+    resetVerificationStep.style.display = 'block';
+    resetPasswordStep.style.display = 'none';
+    resetTeacherName.value = '';
+    resetVerificationMethod.value = '';
+    resetVerificationValue.value = '';
+    resetNewPassword.value = '';
+    resetConfirmPassword.value = '';
+}
+
+// Forgot Password button
+forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+
+// Close forgot password modal
+closeForgotPasswordBtn.addEventListener('click', closeForgotPasswordModal);
+resetBackBtn.addEventListener('click', closeForgotPasswordModal);
+
+// Verification step
+resetVerifyBtn.addEventListener('click', () => {
+    const teacherName = resetTeacherName.value.trim();
+    const method = resetVerificationMethod.value;
+    const value = resetVerificationValue.value.trim();
+    
+    if (!teacherName || !method || !value) {
+        alert('❌ All fields are required!');
+        return;
+    }
+    
+    // Verify identity
+    const verification = verifyIdentity(teacherName, method, value);
+    if (!verification.success) {
+        alert('❌ ' + verification.error);
+        return;
+    }
+    
+    // Move to password reset step
+    resetVerificationStep.style.display = 'none';
+    resetPasswordStep.style.display = 'block';
+    resetNewPassword.focus();
+});
+
+// Back to verification
+resetBackToVerifyBtn.addEventListener('click', () => {
+    resetVerificationStep.style.display = 'block';
+    resetPasswordStep.style.display = 'none';
+    resetNewPassword.value = '';
+    resetConfirmPassword.value = '';
+});
+
+// Submit password reset
+resetSubmitBtn.addEventListener('click', () => {
+    const newPassword = resetNewPassword.value;
+    const confirmPassword = resetConfirmPassword.value;
+    
+    // Reset password
+    const result = resetPassword(newPassword, confirmPassword);
+    if (!result.success) {
+        alert('❌ ' + result.error);
+        return;
+    }
+    
+    // Success
+    alert('✅ Password reset successfully! Please login with your new password.');
+    closeForgotPasswordModal();
+    loginModal.style.display = 'flex';
+    loginTeacherNameInput.focus();
+});
+
 // Create Profile Form
 profileForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!teacherNameInput.value.trim() || !subjectNameInput.value.trim()) {
-        alert('Teacher Name and Subject Name are required!');
-        return;
-    }
-    if (!passwordInput.value.trim()) {
-        alert('Password is required!');
-        return;
-    }
-    if (passwordInput.value.length < 4) {
-        alert('Password must be at least 4 characters long!');
-        return;
-    }
-    if (passwordInput.value !== confirmPasswordInput.value) {
-        alert('Passwords do not match!');
-        return;
-    }
-    const profileData = {
-        teacherName: teacherNameInput.value,
-        subjectName: subjectNameInput.value,
-        password: passwordInput.value,
-        schoolName: schoolNameInput.value,
-        email: emailInput.value,
-        phone: phoneInput.value,
-        classroom: classroomInput.value
-    };
-    saveProfile(profileData);
     
-    // Show main content
-    const mainContent = document.querySelector('.main-content');
-    mainContent.classList.add('visible');
-    createProfileModal.style.display = 'none';
-    alert('Profile created successfully! Welcome to the app!');
+    const teacherName = teacherNameInput.value.trim();
+    const password = passwordInput.value;
+    const confirmPassword = confirmPasswordInput.value;
+    
+    // Validate username
+    const usernameValidation = validateUsername(teacherName);
+    if (!usernameValidation.valid) {
+        alert('❌ ' + usernameValidation.error);
+        return;
+    }
+    
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+        alert('❌ ' + passwordValidation.error);
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        alert('❌ Passwords do not match!');
+        return;
+    }
+    
+    // Store the profile data temporarily before subject selection
+    window.tempProfileData = {
+        teacherName: usernameValidation.value,
+        subjectName: '', // Will be filled after subject selection
+        password: password,
+        schoolName: sanitizeInput(schoolNameInput.value),
+        email: sanitizeInput(emailInput.value),
+        phone: sanitizeInput(phoneInput.value),
+        classroom: sanitizeInput(classroomInput.value)
+    };
+    
+    // Open subject selection modal
+    openSubjectSelectionModal();
+});
+
+// Subject Selection Submit
+submitSubjectBtn.addEventListener('click', async () => {
+    if (!selectedSubject) {
+        alert('Please select a subject!');
+        return;
+    }
+    
+    // Complete the profile data with selected subject
+    const profileData = {
+        ...window.tempProfileData,
+        subjectName: selectedSubject
+    };
+    
+    try {
+        // Register user in Firebase
+        const email = profileData.email || `${profileData.teacherName.toLowerCase().replace(/\s+/g, '.')}@teaching.local`;
+        const firebaseResult = await signUpTeacher(email, profileData.password, profileData);
+        
+        if (!firebaseResult.success) {
+            alert('❌ Cloud registration failed: ' + firebaseResult.error);
+            return;
+        }
+        
+        // Clear old data before saving new profile
+        await clearAllLessons();
+        
+        // Save the complete profile locally
+        saveProfile(profileData);
+        
+        // Seed new topics for this user
+        await seedInitialLessons();
+        
+        // Push all topics to Firebase cloud
+        await pushLocalDataToCloud();
+        
+        // MANDATORY: Start automatic cloud sync
+        console.log('🔄 Starting MANDATORY cloud sync on signup...');
+        await startAutoSync();
+        
+        // Show main content
+        const mainContent = document.querySelector('.main-content');
+        mainContent.classList.add('visible');
+        closeSubjectSelectionModal();
+        
+        // Render the new empty/fresh columns
+        await renderAllColumns();
+        
+        alert('✅ Profile created! Cloud sync enabled - your data is automatically backed up.');
+    } catch (error) {
+        console.error('Profile creation error:', error);
+        alert('❌ Error creating profile: ' + error.message);
+    }
 });
 
 backCreateBtn.addEventListener('click', showAuthLanding);
@@ -827,11 +1419,344 @@ backFromCreateBtn.addEventListener('click', showAuthLanding);
 // Load Default Topics from Settings
 loadDefaultTopicsBtn.addEventListener('click', async () => {
     closeSettingsModal();
-    if (confirm('Load standard curriculum? This will add topics to your current list.')) {
-        await seedInitialLessons();
-        await renderAllColumns();
-        alert('Standard curriculum loaded!');
-    }
+    
+    // Create subject/level selection modal
+    const selectDialog = document.createElement('div');
+    selectDialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    const dialogContent = document.createElement('div');
+    dialogContent.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 500px;
+        max-height: 70vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    `;
+    
+    let selectedSubject = null;
+    let selectedLevel = null;
+    
+    const subjects = [
+        'Basic Computer Knowledge',
+        'ICT/Information Technology',
+        'Domestic Electric',
+        'Mechanic',
+        'Driving',
+        'Mathematics Basic',
+        'English',
+        'Technical Drawing'
+    ];
+    
+    const levels = ['Level One', 'Level Two', 'Level Three', 'Level Four'];
+    
+    let dialogHTML = `<h2 style="margin-top: 0;">Load Topics by Subject & Level</h2>
+    <p style="color: #666; margin-bottom: 15px;">Step 1: Select a Subject</p>
+    <div id="subjectContainer" style="margin-bottom: 20px;">`;
+    
+    subjects.forEach(subject => {
+        dialogHTML += `
+            <button class="subject-select-btn" data-subject="${subject}" style="
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 8px;
+                border: 2px solid #ddd;
+                background: #f9f9f9;
+                border-radius: 4px;
+                cursor: pointer;
+                text-align: left;
+                transition: 0.2s;
+            ">
+            📖 ${subject}
+            </button>
+        `;
+    });
+    
+    dialogHTML += `</div>
+    <p id="levelLabel" style="color: #666; margin-bottom: 15px; display: none;">Step 2: Select a Level</p>
+    <div id="levelContainer" style="margin-bottom: 20px; display: none;">`;
+    
+    levels.forEach(level => {
+        dialogHTML += `
+            <button class="level-select-btn" data-level="${level}" style="
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 8px;
+                border: 2px solid #ddd;
+                background: #f9f9f9;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: 0.2s;
+            ">
+            📚 ${level}
+            </button>
+        `;
+    });
+    
+    dialogHTML += `</div>
+    <button id="cancelSelectBtn" style="
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #bbb;
+        background: #f0f0f0;
+        border-radius: 4px;
+        cursor: pointer;
+    ">Cancel</button>`;
+    
+    dialogContent.innerHTML = dialogHTML;
+    selectDialog.appendChild(dialogContent);
+    document.body.appendChild(selectDialog);
+    
+    // Subject selection
+    document.querySelectorAll('.subject-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectedSubject = btn.dataset.subject;
+            
+            // Highlight selected subject
+            document.querySelectorAll('.subject-select-btn').forEach(b => {
+                b.style.borderColor = '#ddd';
+                b.style.background = '#f9f9f9';
+            });
+            btn.style.borderColor = '#3498db';
+            btn.style.background = '#e3f2fd';
+            
+            // Show level selection
+            document.getElementById('levelLabel').style.display = 'block';
+            document.getElementById('levelContainer').style.display = 'block';
+        });
+    });
+    
+    // Level selection
+    document.querySelectorAll('.level-select-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            selectedLevel = btn.dataset.level;
+            
+            // Get sample topics to show (using the initial lessons list)
+            const sampleTopics = [
+                'History and Evolution of Computers',
+                'Types of Computers',
+                'Basic Computer Operations',
+                'Computer Hardware Components',
+                'Operating Systems Overview',
+                'MS Windows Basics',
+                'File Management',
+                'Introduction to Internet'
+            ];
+            
+            // Create preview modal
+            document.body.removeChild(selectDialog);
+            
+            const previewDialog = document.createElement('div');
+            previewDialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
+            const previewContent = document.createElement('div');
+            previewContent.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 600px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            `;
+            
+            let topicsList = [...sampleTopics];
+            
+            let previewHTML = `<h2 style="margin-top: 0;">Review Topics for ${selectedSubject}</h2>
+            <p style="color: #666; margin-bottom: 15px;">Level: ${selectedLevel}</p>
+            
+            <div id="topicsListContainer" style="margin-bottom: 20px; max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">`;
+            
+            topicsList.forEach((topic, i) => {
+                previewHTML += `
+                    <div class="topic-item" data-index="${i}" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px;
+                        border-bottom: 1px solid #eee;
+                        background: #f9f9f9;
+                        margin-bottom: 8px;
+                        border-radius: 4px;
+                    ">
+                        <span style="flex: 1;">${i+1}. ${topic}</span>
+                        <button class="remove-topic-btn" data-index="${i}" style="
+                            padding: 4px 8px;
+                            background: #ff6b6b;
+                            color: white;
+                            border: none;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 12px;
+                        ">Remove</button>
+                    </div>
+                `;
+            });
+            
+            previewHTML += `</div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 10px;">Add Custom Topic</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newTopicInput" placeholder="Enter topic name..." style="
+                        flex: 1;
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 4px;
+                    ">
+                    <button id="addTopicBtn" style="
+                        padding: 10px 15px;
+                        background: #27ae60;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">+ Add</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="loadTopicsPreviewBtn" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: #3498db;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">✅ Load All Topics</button>
+                <button id="cancelPreviewBtn" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: #f0f0f0;
+                    border: 1px solid #bbb;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">Cancel</button>
+            </div>`;
+            
+            previewContent.innerHTML = previewHTML;
+            previewDialog.appendChild(previewContent);
+            document.body.appendChild(previewDialog);
+            
+            // Remove topic handler
+            document.querySelectorAll('.remove-topic-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    topicsList.splice(index, 1);
+                    
+                    // Refresh the preview
+                    const item = btn.closest('.topic-item');
+                    item.style.opacity = '0.5';
+                    item.style.textDecoration = 'line-through';
+                    btn.disabled = true;
+                    btn.textContent = 'Removed';
+                });
+            });
+            
+            // Add topic handler
+            document.getElementById('addTopicBtn').addEventListener('click', () => {
+                const input = document.getElementById('newTopicInput');
+                const newTopic = input.value.trim();
+                
+                if (newTopic) {
+                    topicsList.push(newTopic);
+                    
+                    // Add to display
+                    const container = document.getElementById('topicsListContainer');
+                    const newItem = document.createElement('div');
+                    newItem.className = 'topic-item';
+                    newItem.style.cssText = `
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px;
+                        border-bottom: 1px solid #eee;
+                        background: #e8f5e9;
+                        margin-bottom: 8px;
+                        border-radius: 4px;
+                    `;
+                    newItem.innerHTML = `
+                        <span>${topicsList.length}. ${newTopic}</span>
+                        <button class="remove-topic-btn" style="
+                            padding: 4px 8px;
+                            background: #ff6b6b;
+                            color: white;
+                            border: none;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 12px;
+                        ">Remove</button>
+                    `;
+                    container.appendChild(newItem);
+                    input.value = '';
+                    input.focus();
+                }
+            });
+            
+            // Load topics handler
+            document.getElementById('loadTopicsPreviewBtn').addEventListener('click', async () => {
+                if (topicsList.length === 0) {
+                    alert('Please add at least one topic!');
+                    return;
+                }
+                
+                // Load the topics
+                await seedInitialLessons();
+                await renderAllColumns();
+                document.body.removeChild(previewDialog);
+                alert(`✅ ${topicsList.length} topics loaded for ${selectedSubject} - ${selectedLevel}!`);
+            });
+            
+            // Cancel handler
+            document.getElementById('cancelPreviewBtn').addEventListener('click', () => {
+                document.body.removeChild(previewDialog);
+            });
+            
+            // Close when clicking outside
+            previewDialog.addEventListener('click', (e) => {
+                if (e.target === previewDialog) {
+                    document.body.removeChild(previewDialog);
+                }
+            });
+        });
+    });
+    
+    // Cancel button
+    document.getElementById('cancelSelectBtn').addEventListener('click', () => {
+        document.body.removeChild(selectDialog);
+    });
+    
+    // Close when clicking outside
+    selectDialog.addEventListener('click', (e) => {
+        if (e.target === selectDialog) {
+            document.body.removeChild(selectDialog);
+        }
+    });
 });
 
 // Change Password button
@@ -853,26 +1778,35 @@ changePasswordForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const profile = getProfile();
     const currentPass = currentPasswordInput.value.trim();
-    const newPass = newPasswordInput.value.trim();
-    const confirmPass = confirmNewPasswordInput.value.trim();
+    const newPass = newPasswordInput.value;
+    const confirmPass = confirmNewPasswordInput.value;
     
     if (!currentPass || !newPass || !confirmPass) {
-        alert('All fields are required!');
+        alert('❌ All fields are required!');
         return;
     }
     
+    // Verify current password
     if (currentPass !== profile.password) {
-        alert('Current password is incorrect!');
+        alert('❌ Current password is incorrect!');
         return;
     }
     
-    if (newPass.length < 4) {
-        alert('New password must be at least 4 characters!');
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPass);
+    if (!passwordValidation.valid) {
+        alert('❌ ' + passwordValidation.error);
         return;
     }
     
     if (newPass !== confirmPass) {
-        alert('Passwords do not match!');
+        alert('❌ New passwords do not match!');
+        return;
+    }
+    
+    // Check if new password is same as old
+    if (newPass === currentPass) {
+        alert('❌ New password must be different from current password!');
         return;
     }
     
@@ -881,19 +1815,22 @@ changePasswordForm.addEventListener('submit', (e) => {
     saveProfile(profile);
     changePasswordForm.reset();
     changePasswordModal.style.display = 'none';
-    alert('Password changed successfully!');
+    alert('✅ Password changed successfully!');
 });
 
 // Logout button
 logoutBtn.addEventListener('click', () => {
     if (confirm('Are you sure you want to logout? You will need to login again.')) {
-        // Don't delete profile - just hide content so user can login again
+        // Clear secure session
+        clearSession();
+        
+        // Hide content
         const mainContent = document.querySelector('.main-content');
         mainContent.classList.remove('visible');
         closeSettingsModal();
         loginForm.reset();
         showAuthLanding();
-        alert('Logged out successfully!');
+        alert('✅ Logged out successfully!');
     }
 });
 

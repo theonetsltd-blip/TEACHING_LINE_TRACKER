@@ -39,21 +39,34 @@ async function initDB() {
     });
 }
 
-// Add or update a lesson
+// Add or update a lesson (with MANDATORY automatic cloud sync)
 async function saveLessonToDB(lesson) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
         const request = lesson.id ? store.put(lesson) : store.add(lesson);
 
-        request.onsuccess = () => {
-            console.log('Lesson saved:', request.result);
+        request.onsuccess = async () => {
+            console.log('✓ Lesson saved locally:', request.result);
+            
+            // MANDATORY: Automatically sync to Firebase cloud
+            try {
+                const syncResult = await saveLessonToCloud(lesson);
+                if (syncResult.success) {
+                    console.log('✓ Lesson automatically synced to cloud');
+                } else if (syncResult.queued) {
+                    console.log('⏳ Lesson queued for cloud sync');
+                }
+            } catch (error) {
+                console.warn('⚠️ Cloud sync failed, will retry:', error.message);
+            }
+            
             resolve(request.result);
         };
 
         request.onerror = () => {
-            console.error('Error saving lesson:', request.error);
+            console.error('❌ Error saving lesson:', request.error);
             reject(request.error);
         };
     });
@@ -115,19 +128,33 @@ async function getLessonsByStatus(status) {
 }
 
 // Delete lesson by ID
+// Delete a lesson (with MANDATORY automatic cloud sync)
 async function deleteLessonFromDB(id) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(id);
 
-        request.onsuccess = () => {
-            console.log('Lesson deleted:', id);
+        request.onsuccess = async () => {
+            console.log('✓ Lesson deleted locally:', id);
+            
+            // MANDATORY: Automatically sync deletion to Firebase cloud
+            try {
+                const syncResult = await deleteLessonFromCloud(id);
+                if (syncResult.success) {
+                    console.log('✓ Lesson deletion automatically synced to cloud');
+                } else if (syncResult.queued) {
+                    console.log('⏳ Lesson deletion queued for cloud sync');
+                }
+            } catch (error) {
+                console.warn('⚠️ Cloud sync failed, will retry:', error.message);
+            }
+            
             resolve(true);
         };
 
         request.onerror = () => {
-            console.error('Error deleting lesson:', request.error);
+            console.error('❌ Error deleting lesson:', request.error);
             reject(request.error);
         };
     });
@@ -758,11 +785,22 @@ async function seedInitialLessons() {
         }
     ];
 
+    // Get existing lessons to check for duplicates
+    const existingLessons = await getAllLessons();
+    const existingTopics = new Set(existingLessons.map(l => l.topic.trim().toLowerCase()));
+
+    let addedCount = 0;
     for (const lesson of initialLessons) {
-        await saveLessonToDB(lesson);
+        // Check if topic already exists (case-insensitive, trimmed)
+        if (!existingTopics.has(lesson.topic.trim().toLowerCase())) {
+            await saveLessonToDB(lesson);
+            addedCount++;
+        } else {
+            console.log(`Skipped duplicate topic: "${lesson.topic}"`);
+        }
     }
 
-    console.log('Initial lessons seeded successfully - 55 topics loaded for 1-year curriculum');
+    console.log(`Initial lessons seeded successfully - ${addedCount} new topics added (${existingLessons.length + addedCount} total)`);
 }
 
 // Export all lessons as array

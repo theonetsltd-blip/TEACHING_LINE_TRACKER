@@ -98,17 +98,423 @@ The app comes pre-loaded with 13 core topics:
 
 ```
 teaching-progress-pwa/
-├── index.html              # Main HTML file
+├── index.html              # Main HTML file with all modals
 ├── manifest.json           # PWA manifest configuration
 ├── service-worker.js       # Offline support & caching
+├── README.md              # This file
+├── SECURITY.md            # Security implementation details
+├── SECURITY_QUICK_REF.txt # Security quick reference
+├── PASSWORD_RESET_GUIDE.md         # Password reset feature guide
+├── PASSWORD_RESET_IMPLEMENTATION.md # Password reset technical docs
+├── TOPICS_LIST.txt        # Curriculum topics list
 ├── css/
-│   └── style.css          # Complete styling (mobile-first)
+│   └── style.css          # Complete styling (mobile-first responsive)
 ├── js/
-│   ├── app.js             # Main app logic & initialization
-│   ├── db.js              # IndexedDB operations
-│   └── ui.js              # UI rendering & interactions
+│   ├── app.js             # Main app initialization & form handling
+│   ├── db.js              # IndexedDB database operations
+│   ├── ui.js              # UI rendering, interactions & modals
+│   ├── security.js        # Authentication & security functions
+│   ├── firebase-config.js # Firebase cloud sync configuration
+│   └── service-worker.js  # Service worker for offline support
+├── assets/
+│   └── images/
+│       └── logo.png       # School logo
 └── README.md              # This file
 ```
+
+## 🔄 System Architecture
+
+### Application Layers
+
+```
+┌─────────────────────────────────────────────────────────┐
+│         USER INTERFACE LAYER (ui.js)                    │
+│  - Modals (Login, Create Profile, Add Topic, Settings)  │
+│  - Kanban Board rendering and interactions              │
+│  - Form handling and validation                         │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────┐
+│      APPLICATION LOGIC LAYER (app.js)                   │
+│  - App initialization                                   │
+│  - Lesson form submission handling                      │
+│  - Notifications and alerts                             │
+└────────────────────┬────────────────────────────────────┘
+                     │
+         ┌───────────┼───────────┐
+         │           │           │
+┌────────▼──┐  ┌─────▼────┐  ┌──▼──────────┐
+│ Security  │  │ Database │  │   Cloud     │
+│  (sec.js) │  │ (db.js)  │  │ (firebase)  │
+└────┬──────┘  └─────┬────┘  └──┬──────────┘
+     │                │          │
+     └────────┬───────┴──────────┘
+              │
+     ┌────────▼──────────┐
+     │ Local Storage &   │
+     │ IndexedDB & Cloud │
+     └──────────────────┘
+```
+
+### Data Flow
+
+```
+User Action (Login, Add Topic, etc.)
+    ↓
+Input Validation (security.js)
+    ↓
+Form Submission (app.js)
+    ↓
+Database Operation (db.js)
+    ├─→ Local Storage (IndexedDB)
+    └─→ MANDATORY Cloud Sync (firebase-config.js - auto-sync enabled)
+    ↓
+UI Update (ui.js)
+    ↓
+Display to User with Sync Status
+```
+
+## 📁 File Descriptions
+
+### Core Files
+
+#### `index.html` (487 lines)
+**Purpose**: Main HTML structure  
+**Contains**:
+- Header with logo, title, and action buttons
+- Authentication modals (Login, Create Profile, Forgot Password)
+- Main Kanban board with 3 columns
+- Topic form modal
+- Settings, export, and reset modals
+- Footer
+
+#### `js/app.js` (310 lines)
+**Purpose**: Main application logic and initialization  
+**Responsibilities**:
+- App startup and initialization
+- Database initialization
+- Session validation on load
+- Lesson form submission handling
+- Cloud sync coordination
+- Error handling
+**Key Functions**:
+- `DOMContentLoaded` event handler
+- Form submission listener
+- Cloud sync integration
+
+#### `js/ui.js` (1803 lines)
+**Purpose**: User interface rendering and interactions  
+**Responsibilities**:
+- DOM element management
+- Modal opening/closing
+- Kanban board rendering
+- Drag & drop functionality
+- Form interactions
+- Profile management
+- Export functionality
+- Password reset UI
+**Key Functions**:
+- `renderAllColumns()` - Render kanban board
+- `openLoginModal()`, `closeLoginModal()`
+- `createLessonCard()` - Create lesson cards
+- `openForgotPasswordModal()` - Password reset UI
+
+#### `js/db.js` (776 lines)
+**Purpose**: IndexedDB database operations  
+**Responsibilities**:
+- Database initialization and versioning
+- CRUD operations (Create, Read, Update, Delete)
+- Query operations (get by status, ID, etc.)
+- Lesson seeding with curriculum
+- Duplicate detection
+**Key Functions**:
+- `initDB()` - Initialize database
+- `saveLessonToDB()` - Save/update lesson
+- `getAllLessons()` - Get all lessons
+- `getLessonsByStatus()` - Filter lessons
+- `deleteLessonFromDB()` - Delete lesson
+- `seedInitialLessons()` - Load curriculum
+
+#### `js/security.js` (430 lines)
+**Purpose**: Authentication and security  
+**Responsibilities**:
+- User authentication and login
+- Rate limiting and account lockout
+- Input validation and sanitization
+- Session management
+- Password requirements enforcement
+- Bypass prevention
+- Password reset verification
+**Key Functions**:
+- `secureLogin()` - Validate login attempt
+- `validateUsername()` - Check username format
+- `validatePassword()` - Check password strength
+- `createSecureSession()` - Create session
+- `isSessionValid()` - Check session validity
+- `verifyIdentity()` - Verify for password reset
+- `resetPassword()` - Update password
+
+#### `js/firebase-config.js` (276 lines)
+**Purpose**: Firebase cloud synchronization  
+**Responsibilities**:
+- Firebase initialization
+- User authentication (cloud)
+- Cloud data sync (push/pull)
+- Real-time sync listeners
+**Key Functions**:
+- `signUpTeacher()` - Register in Firebase
+- `loginTeacher()` - Cloud authentication
+- `saveLessonToCloud()` - Sync to Firebase
+- `getAllLessonsFromCloud()` - Get cloud data
+- `smartSync()` - Two-way sync
+
+### Styling
+
+#### `css/style.css` (600+ lines)
+**Purpose**: Complete application styling  
+**Features**:
+- CSS custom properties (variables)
+- Mobile-first responsive design
+- Flexbox and Grid layouts
+- Drag & drop styling
+- Modal styles
+- Color scheme and themes
+- Print styles for PDF export
+
+### Configuration Files
+
+#### `manifest.json`
+**Purpose**: PWA configuration  
+**Contains**:
+- App name and description
+- App icons
+- Theme colors
+- Display mode
+- Start URL
+- Screenshot URLs
+
+#### `service-worker.js`
+**Purpose**: Offline support  
+**Features**:
+- Cache strategies
+- Network requests handling
+- Offline fallback
+- Background sync
+
+---
+
+## 📊 Data Models
+
+### Lesson Object
+```javascript
+{
+  id: number,                                    // Auto-generated by IndexedDB
+  topic: string,                                 // Topic title (required)
+  week: number || null,                          // Week number 1-52
+  status: "not-started" | "in-progress" | "completed",
+  periodsPlanned: number,                        // Total periods (default: 2)
+  periodsUsed: number,                           // Periods taught (default: 0)
+  lastTaught: string,                            // Date YYYY-MM-DD format
+  nextStart: string,                             // e.g., "Page 3, Exercise 5"
+  remarks: string                                // Notes and comments
+}
+```
+
+### Teacher Profile Object
+```javascript
+{
+  teacherName: string,                           // Teacher's full name
+  subjectName: string,                           // Vocational subject
+  password: string,                              // Hashed password
+  schoolName: string,                            // School name (optional)
+  email: string,                                 // Email address
+  phone: string,                                 // Phone number
+  classroom: string,                             // Class/Level (e.g., "Level One")
+  uid: string                                    // Firebase UID (if cloud user)
+}
+```
+
+### Session Object
+```javascript
+{
+  username: string,                              // Teacher name
+  uid: string,                                   // User ID (local or Firebase)
+  loginTime: number,                             // Timestamp of login
+  lastActivity: number,                          // Last activity timestamp
+  deviceId: string,                              // Device fingerprint
+  sessionToken: string                           // Unique session token
+}
+```
+
+---
+
+## 🔐 Security Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│          Input Validation & Sanitization            │
+│  - Username: 2-50 chars, alphanumeric               │
+│  - Password: 8+ chars with complexity requirements  │
+│  - Remove HTML/script injection attempts            │
+└────────────────┬─────────────────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────────────────┐
+│      Rate Limiting & Account Lockout                │
+│  - 5 failed attempts = 15 min lockout               │
+│  - Device-based tracking (fingerprinting)           │
+│  - Automatic unlock after timeout                   │
+└────────────────┬─────────────────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────────────────┐
+│        Session Management & Validation              │
+│  - Unique session tokens per login                  │
+│  - Device fingerprint verification                  │
+│  - 30-minute inactivity timeout                     │
+│  - Activity tracking (mouse, keyboard, click)       │
+└────────────────┬─────────────────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────────────────┐
+│      Password Reset Verification                    │
+│  - Identity check (name + email/phone)              │
+│  - Strong password requirements for reset           │
+│  - Login attempt counter reset on reset             │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Request/Response Flow
+
+### Login Flow
+```
+1. User enters credentials
+   ↓
+2. Input validation (security.js)
+   ├─ Check rate limiting
+   ├─ Validate username format
+   ├─ Validate password format
+   └─ Check account lockout status
+   ↓
+3. Firebase authentication (if online)
+   ├─ Send credentials to Firebase
+   ├─ Get user UID
+   └─ Pull cloud data if available
+   ↓
+4. Local authentication (fallback)
+   ├─ Get stored profile
+   ├─ Compare credentials
+   ├─ Match status and password
+   ↓
+5. Create secure session
+   ├─ Generate session token
+   ├─ Store device fingerprint
+   ├─ Start timeout counter
+   └─ Record successful login
+   ↓
+6. Load data and show app
+```
+
+### Add/Edit Lesson Flow
+```
+1. User opens lesson form
+   ↓
+2. Validate session (security.js)
+   ├─ Check session exists
+   ├─ Verify device fingerprint
+   └─ Check timeout not expired
+   ↓
+3. User submits form
+   ↓
+4. Validate input (app.js)
+   ├─ Required fields check
+   ├─ Format validation
+   └─ Sanitize user input
+   ↓
+5. Save to local database (db.js)
+   ├─ IndexedDB save operation
+   ├─ Get returned lesson ID
+   └─ Update in-memory cache
+   ↓
+6. Sync to cloud (firebase-config.js - if online)
+   ├─ Push to Firebase
+   ├─ Show sync indicator
+   └─ Handle errors
+   ↓
+7. Re-render UI (ui.js)
+   ├─ Update kanban board
+   ├─ Clear form
+   └─ Show success message
+```
+
+### Export Flow
+```
+1. User clicks export button
+   ↓
+2. Choose format (CSV or PDF)
+   ↓
+3. Get all lessons from database
+   ↓
+4. Format data
+   ├─ CSV: Comma-separated values
+   └─ PDF: HTML to PDF conversion
+   ↓
+5. Trigger download
+   ├─ Create blob with data
+   ├─ Generate download link
+   └─ Simulate click
+```
+
+---
+
+## 🗄️ Database Schema
+
+### IndexedDB Structure
+```
+Database: TeachingProgressDB (v1)
+
+Store: lessons
+  ├─ KeyPath: id (auto-increment)
+  └─ Indexes:
+      ├─ status (not-started, in-progress, completed)
+      └─ week (week number 1-52)
+
+Profile Storage: localStorage
+  ├─ Key: teacherProfile
+  └─ Value: JSON stringified teacher profile
+
+Session Storage: localStorage
+  ├─ Key: sessionData
+  └─ Value: JSON stringified session object
+
+Security Storage: localStorage
+  ├─ login_attempts_{deviceId}
+  └─ login_lock_{deviceId}
+```
+
+---
+
+## 🔌 External Dependencies
+
+### Firebase (MANDATORY Cloud Sync & Authentication)
+**Firebase is NOW MANDATORY** - All data is automatically synchronized to the cloud.
+- `firebase-app.js` - Firebase core
+- `firebase-auth.js` - Authentication required for login
+- `firebase-firestore.js` - Real-time cloud database for automatic sync
+
+**Key Features**:
+- ✅ MANDATORY: All users must authenticate via Firebase
+- ✅ AUTOMATIC: Data automatically syncs to cloud on every save
+- ✅ QUEUING: Offline operations queue and sync when back online
+- ✅ REAL-TIME: Cloud changes sync back to app automatically
+- ✅ NO CHOICE: Local-only operation not supported
+
+### No Other Dependencies
+- ✅ No frameworks (React, Vue, Angular)
+- ✅ No jQuery or utility libraries
+- ✅ No external CSS frameworks
+- ✅ Pure vanilla JavaScript and CSS
+
+
 
 ## 💾 Data Storage
 

@@ -26,14 +26,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mainContent = document.querySelector('.main-content');
         mainContent.classList.remove('visible');
         
-        // Check for teacher profile
+        // Check session validity first
+        const hasValidSession = isSessionValid();
         const profile = getProfile();
-        if (profile && profile.teacherName) {
-            // Profile exists, show content directly
-            console.log('Profile found. Loading app...');
+        
+        if (hasValidSession && profile && profile.teacherName) {
+            // Valid session exists - show content
+            console.log('✓ Valid session found. Loading app...');
             document.getElementById('authLanding').style.display = 'none';
             mainContent.classList.add('visible');
             updateHeaderWithTeacherInfo();
+        } else if (profile && profile.teacherName && !hasValidSession) {
+            // Profile exists but session invalid - show login
+            console.log('⚠️ Session expired. Requiring login...');
+            clearSession();
+            document.getElementById('authLanding').style.display = 'flex';
         } else {
             // No profile - show auth landing page
             console.log('No profile found. Showing auth landing...');
@@ -129,6 +136,16 @@ document.getElementById('lessonForm').addEventListener('submit', async (e) => {
         const savedId = await saveLessonToDB(lesson);
         console.log('Lesson saved with ID:', savedId);
         
+        // Sync to cloud if online
+        if (isOnline && getCurrentUser()) {
+            lesson.id = savedId;
+            showSyncIndicator('⏳ Syncing to cloud...');
+            await saveLessonToCloud(lesson);
+            showSyncIndicator('✅ Synced!');
+        } else if (!isOnline) {
+            console.log('Offline - saved locally. Will sync when online.');
+        }
+        
         // Re-render
         await renderAllColumns();
         
@@ -136,7 +153,8 @@ document.getElementById('lessonForm').addEventListener('submit', async (e) => {
         closeLessonModal();
         
         // Show success message
-        showNotification(`Topic "${lesson.topic}" saved successfully!`);
+        const msg = isOnline ? `Topic "${lesson.topic}" saved and synced!` : `Topic "${lesson.topic}" saved locally (will sync online)`;
+        showNotification(msg);
         
     } catch (error) {
         console.error('Error saving lesson:', error);
