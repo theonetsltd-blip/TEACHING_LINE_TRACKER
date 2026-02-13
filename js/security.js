@@ -25,18 +25,36 @@ let loginAttempts = {};
 let lastSessionCheck = Date.now();
 
 function getClientFingerprint() {
-    // Create a unique identifier for this browser/device
+    // Create a fingerprint of current environment (kept for diagnostics)
     const fingerprint = {
         userAgent: navigator.userAgent,
         language: navigator.language,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         screenResolution: `${window.screen.width}x${window.screen.height}`
     };
-    // Simple hash
     return btoa(JSON.stringify(fingerprint));
 }
 
-const DEVICE_ID = getClientFingerprint();
+function generateDeviceId() {
+    try {
+        const bytes = new Uint8Array(16);
+        (window.crypto || {}).getRandomValues?.(bytes);
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+}
+
+function getDeviceId() {
+    let id = localStorage.getItem('deviceId');
+    if (!id) {
+        id = generateDeviceId();
+        localStorage.setItem('deviceId', id);
+    }
+    return id;
+}
+
+const DEVICE_ID = getDeviceId();
 
 function isAccountLocked() {
     const lockData = localStorage.getItem(`login_lock_${DEVICE_ID}`);
@@ -216,7 +234,6 @@ function updateSessionActivity() {
 
 function clearSession() {
     localStorage.removeItem('sessionData');
-    localStorage.removeItem('teacherProfile');
     clearSessionTimeout();
 }
 

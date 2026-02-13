@@ -278,9 +278,9 @@ async function isDatabaseEmpty() {
     });
 }
 
-// Seed initial lessons - Comprehensive 1-Year VETA Level One Curriculum (55 Topics)
-async function seedInitialLessons() {
-    const initialLessons = [
+// Subject-aware default lessons providers
+function getBCKInitialLessons() {
+    return [
         // PHASE 1: COMPUTER FOUNDATIONS (Weeks 1-8, 9 topics)
         {
             topic: 'History and Evolution of Computers',
@@ -865,12 +865,51 @@ async function seedInitialLessons() {
             remarks: 'Enrichment: Progressive Web Apps'
         }
     ];
+}
+
+function normalizeSubjectKey(subjectName = '') {
+    const s = String(subjectName).trim().toLowerCase();
+    if (!s) return '';
+    // Simple normalization/synonyms
+    if (s.includes('basic computer') || s === 'bck') return 'bck';
+    return s;
+}
+
+function getDefaultLessonsForSubject(subjectName = '') {
+    const key = normalizeSubjectKey(subjectName);
+    switch (key) {
+        case 'bck':
+        case 'basic computer knowledge':
+            return getBCKInitialLessons();
+        default:
+            return [];
+    }
+}
+
+// Seed initial lessons according to selected subject.
+// Returns { addedCount, totalAfter, subject }
+async function seedInitialLessons(subjectOverride) {
+    // Determine subject from override or local profile
+    let subjectName = subjectOverride;
+    if (!subjectName) {
+        try {
+            const raw = localStorage.getItem('teacherProfile');
+            if (raw) {
+                const prof = JSON.parse(raw);
+                subjectName = prof?.subjectName || prof?.subject || '';
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    const initialLessons = getDefaultLessonsForSubject(subjectName);
 
     // Get existing lessons to check for duplicates
     const existingLessons = await getAllLessons();
     const existingTopics = new Set(existingLessons.map(l => l.topic.trim().toLowerCase()));
 
     let addedCount = 0;
+    const total = initialLessons.length;
+    let processed = 0;
     for (const lesson of initialLessons) {
         // Check if topic already exists (case-insensitive, trimmed)
         if (!existingTopics.has(lesson.topic.trim().toLowerCase())) {
@@ -879,9 +918,21 @@ async function seedInitialLessons() {
         } else {
             console.log(`Skipped duplicate topic: "${lesson.topic}"`);
         }
+        processed++;
+        try {
+            if (typeof window !== 'undefined' && typeof window.updateGlobalLoader === 'function') {
+                window.updateGlobalLoader('Loading default topics...', `Seeding ${processed}/${total}`);
+            }
+        } catch (_) { /* no-op */ }
     }
 
-    console.log(`Initial lessons seeded successfully - ${addedCount} new topics added (${existingLessons.length + addedCount} total)`);
+    if (addedCount > 0) {
+        console.log(`Initial lessons seeded for subject "${subjectName || 'unknown'}" - ${addedCount} new topics added (${existingLessons.length + addedCount} total)`);
+    } else {
+        console.log(`No default topics available for subject "${subjectName || 'unknown'}". Leaving list empty for manual entry.`);
+    }
+
+    return { addedCount, totalAfter: existingLessons.length + addedCount, subject: subjectName || '' };
 }
 
 // Export all lessons as array

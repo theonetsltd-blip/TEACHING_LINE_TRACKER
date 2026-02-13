@@ -150,12 +150,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await clearAllLessons();
             }
             
-            console.log('📚 Seeding 55-topic curriculum...');
+            console.log('📚 Seeding default curriculum for selected subject (if available)...');
             if (typeof seedInitialLessons !== 'function') {
                 throw new Error('seedInitialLessons function not found - db.js not loaded');
             }
-            await seedInitialLessons();
-            console.log('✓ Seed complete!');
+            const profile = typeof getProfile === 'function' ? (getProfile() || {}) : {};
+            const result = await seedInitialLessons(profile.subjectName);
+            if (result?.addedCount > 0) {
+                console.log(`✓ Seed complete! Added ${result.addedCount} topics for ${result.subject || 'subject'}`);
+            } else {
+                console.log('ℹ️ No default topics available for the selected subject.');
+            }
         } else if (allLessons.length > 60) {
             console.warn(`⚠️  Database has ${allLessons.length} topics - possible duplicates!`);
             // Detect and remove duplicates by topic name

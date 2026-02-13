@@ -192,6 +192,24 @@ p {
 }
 
 /* ========================
+   GLOBAL LOADER / STATUS
+   ======================== */
+#globalLoader {
+    display: none; /* toggled via JS */
+}
+
+.sync-status--active #headerSyncStatus {
+    display: block !important;
+}
+
+.sync-status--idle #headerSyncStatus {
+    display: block !important;
+    background: rgba(39, 174, 96, 0.08);
+    border-left-color: var(--success-color) !important;
+    color: var(--text-dark) !important;
+}
+
+/* ========================
    KANBAN BOARD
    ======================== */
 .kanban-board {

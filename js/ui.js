@@ -113,6 +113,7 @@ const statusSelect = document.getElementById('status');
 const exportBtn = document.getElementById('exportBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const adminBadge = document.getElementById('adminBadge');
+const adminDashboardBtn = document.getElementById('adminDashboardBtn');
 
 // Danger Zone elements
 const dangerDeleteCloudBtn = document.getElementById('dangerDeleteCloudBtn');
@@ -146,6 +147,14 @@ const closeViewTopicsModalBtn = document.getElementById('closeViewTopicsModalBtn
 const closeViewTopicsBtn = document.getElementById('closeViewTopicsBtn');
 const topicsSearchInput = document.getElementById('topicsSearchInput');
 const topicsListContainer = document.getElementById('topicsListContainer');
+// Admin Dashboard elements
+const adminDashboard = document.getElementById('adminDashboard');
+const backFromAdminDashboardBtn = document.getElementById('backFromAdminDashboardBtn');
+const adminLoadUsersBtn = document.getElementById('adminLoadUsersBtn');
+const adminUsersTableBody = document.getElementById('adminUsersTableBody');
+const adminStatTotalUsers = document.getElementById('adminStatTotalUsers');
+const adminStatActiveToday = document.getElementById('adminStatActiveToday');
+const adminStatCloudLessons = document.getElementById('adminStatCloudLessons');
 
 // Subject Selection Modal
 const subjectSelectionModal = document.getElementById('subjectSelectionModal');
@@ -192,6 +201,37 @@ const headerSyncStatus = document.getElementById('headerSyncStatus');
 const headerSyncText = document.getElementById('headerSyncText');
 
 let syncTimeout = null;
+let activeSyncOps = 0;
+let lastSyncAt = null;
+
+// Professional loading overlay
+let globalLoaderCount = 0;
+function showGlobalLoader(message = 'Working...', sub = 'Please wait') {
+    const el = document.getElementById('globalLoader');
+    const txt = document.getElementById('globalLoaderText');
+    const subEl = document.getElementById('globalLoaderSub');
+    if (txt) txt.textContent = message;
+    if (subEl) subEl.textContent = sub || '';
+    globalLoaderCount++;
+    if (el && globalLoaderCount > 0) {
+        el.style.display = 'flex';
+    }
+}
+
+function hideGlobalLoader(force = false) {
+    const el = document.getElementById('globalLoader');
+    if (force) globalLoaderCount = 0; else globalLoaderCount = Math.max(0, globalLoaderCount - 1);
+    if (el && globalLoaderCount === 0) {
+        el.style.display = 'none';
+    }
+}
+
+function updateGlobalLoader(message, sub) {
+    const txt = document.getElementById('globalLoaderText');
+    const subEl = document.getElementById('globalLoaderSub');
+    if (message && txt) txt.textContent = message;
+    if (typeof sub !== 'undefined' && subEl) subEl.textContent = sub;
+}
 
 // Show sync indicator with status message
 function showSyncIndicator(message = '☁️ Syncing data...') {
@@ -215,6 +255,42 @@ function showSyncIndicator(message = '☁️ Syncing data...') {
         }, 300);
     }, 3000);
 }
+
+// Persistent Sync UI manager (used by cloud ops)
+window.SyncUI = {
+    start(msg = '⏳ Syncing...') {
+        activeSyncOps++;
+        document.body.classList.add('sync-status--active');
+        headerSyncStatus.style.display = 'block';
+        headerSyncText.textContent = msg;
+    },
+    update(msg) {
+        if (msg) headerSyncText.textContent = msg;
+    },
+    done(msg = '✓ All changes saved') {
+        activeSyncOps = Math.max(0, activeSyncOps - 1);
+        if (activeSyncOps === 0) {
+            lastSyncAt = new Date();
+            localStorage.setItem('lastSyncAt', lastSyncAt.toISOString());
+            headerSyncText.textContent = `${msg} • ${lastSyncAt.toLocaleTimeString()}`;
+            document.body.classList.remove('sync-status--active');
+            document.body.classList.add('sync-status--idle');
+            // Keep visible for a bit, then fade
+            setTimeout(() => {
+                headerSyncStatus.style.display = 'none';
+                document.body.classList.remove('sync-status--idle');
+            }, 4000);
+        } else if (msg) {
+            headerSyncText.textContent = msg;
+        }
+    },
+    setLastSync(ts) {
+        try {
+            lastSyncAt = ts ? new Date(ts) : new Date();
+            localStorage.setItem('lastSyncAt', lastSyncAt.toISOString());
+        } catch (_) {}
+    }
+};
 
 function updateConnectionStatus() {
     isOnline = navigator.onLine;
@@ -396,14 +472,13 @@ function closeExportModalWindow() {
 
 function openSettingsModal() {
     settingsModal.style.display = 'flex';
-    const unlocked = localStorage.getItem('adminUnlocked') === 'true';
     if (adminUnlockStatus) {
-        adminUnlockStatus.textContent = unlocked ? 'Admin tools unlocked (local). Use admin backend for multi-user cleanup.' : '';
+        adminUnlockStatus.textContent = '';
     }
 
     // Show Danger Zone only for admin
     const role = getSessionRole();
-    const isAdmin = role === 'admin' || unlocked;
+    const isAdmin = role === 'admin';
     if (dangerZone) dangerZone.style.display = isAdmin ? 'block' : 'none';
 }
 
@@ -458,6 +533,24 @@ function openAdminPanel() {
     if (adminPanelModal) adminPanelModal.style.display = 'flex';
 }
 
+function openAdminDashboard() {
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.classList.remove('visible');
+    if (adminPanelModal) adminPanelModal.style.display = 'none';
+    if (adminDashboard) adminDashboard.style.display = 'block';
+    // Auto-load users if admin backend configured
+    try {
+        const role = getSessionRole?.() || 'user';
+        if (role === 'admin') {
+            loadAdminUsers?.();
+        }
+    } catch (_) {}
+}
+
+function closeAdminDashboard() {
+    if (adminDashboard) adminDashboard.style.display = 'none';
+}
+
 function closeAdminPanel() {
     if (adminPanelModal) adminPanelModal.style.display = 'none';
 }
@@ -467,6 +560,44 @@ backFromAdminBtn?.addEventListener('click', () => {
     closeAdminPanel();
     showAuthLanding();
 });
+
+adminDashboardBtn?.addEventListener('click', () => {
+    openAdminDashboard();
+});
+
+backFromAdminDashboardBtn?.addEventListener('click', () => {
+    closeAdminDashboard();
+    showAuthLanding();
+});
+
+async function loadAdminUsers() {
+    try {
+        showSyncIndicator('⏳ Loading users...');
+        const result = await (window.adminApi?.listUsers?.() || Promise.resolve({ success: false, error: 'Admin backend not connected' }));
+        if (!result.success) {
+            alert('❌ ' + (result.error || 'Failed to load users'));
+            return;
+        }
+        const users = result.users || [];
+        adminStatTotalUsers.textContent = users.length;
+        adminStatActiveToday.textContent = result.activeToday ?? '–';
+        adminStatCloudLessons.textContent = result.cloudLessons ?? '–';
+        adminUsersTableBody.innerHTML = users.length ? users.map(u => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">${u.uid}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">${u.email || '-'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">${(u.teacherName || '-')}</td>
+                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">${(u.subject || '-')}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="4" style="padding:16px; color: var(--text-secondary);">No users found</td></tr>';
+        showSyncIndicator('✅ Users loaded');
+    } catch (err) {
+        console.error('Admin Load Users error:', err);
+        alert('❌ Failed to load users: ' + err.message);
+    }
+}
+
+adminLoadUsersBtn?.addEventListener('click', loadAdminUsers);
 
 adminDeleteCloudBtn?.addEventListener('click', async () => {
     const confirmText = (adminConfirmDeleteCloudInput?.value || '').trim();
@@ -512,8 +643,13 @@ function getProfile() {
 
 function updateHeaderWithTeacherInfo() {
     const profile = getProfile();
-    if (profile && profile.teacherName && profile.subjectName) {
-        teacherInfo.textContent = `👤 ${profile.teacherName} • 📖 ${profile.subjectName}`;
+    if (profile && (profile.teacherName || profile.email)) {
+        const parts = [];
+        if (profile.teacherName) parts.push(`👤 ${profile.teacherName}`);
+        if (profile.subjectName) parts.push(`📖 ${profile.subjectName}`);
+        if (profile.schoolName) parts.push(`🏫 ${profile.schoolName}`);
+        if (profile.classroom) parts.push(`🎓 ${profile.classroom}`);
+        teacherInfo.textContent = parts.join(' • ');
         teacherInfo.style.display = 'block';
     } else {
         teacherInfo.style.display = 'none';
@@ -727,10 +863,12 @@ function setupColumnDragTargets() {
 
 async function importTopicsFromCSV(csvText) {
     try {
+        showGlobalLoader('Importing topics...', 'Parsing CSV and saving');
         const lines = csvText.trim().split('\n');
         const header = lines[0].split(',').map(h => h.trim());
         
         let importedCount = 0;
+        const total = Math.max(0, lines.length - 1);
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim());
             if (values.length < 1 || !values[0]) continue;
@@ -749,6 +887,7 @@ async function importTopicsFromCSV(csvText) {
             showSyncIndicator('📥 Importing topics...');
             await saveLessonToDB(lesson);
             importedCount++;
+            updateGlobalLoader('Importing topics...', `Saved ${importedCount}/${total}`);
         }
         
         alert(`Successfully imported ${importedCount} topics!`);
@@ -763,6 +902,8 @@ async function importTopicsFromCSV(csvText) {
     } catch (error) {
         console.error('Error importing CSV:', error);
         alert('Error importing file. Check console for details.');
+    } finally {
+        hideGlobalLoader();
     }
 }
 
@@ -771,8 +912,32 @@ async function exportToCSV() {
     
     // Sort by week
     lessons.sort((a, b) => (a.week || 0) - (b.week || 0));
-    
-    let csv = 'Topic,Week,Status,Periods Planned,Periods Used,% Complete,Last Taught,Next Start,Remarks\n';
+
+    // Profile details for header metadata
+    const profile = getProfile() || {};
+    const teacherName = profile.teacherName || '';
+    const subjectName = profile.subjectName || '';
+    const schoolName = profile.schoolName || '';
+    const levelName = profile.classroom || '';
+    const phoneNumber = profile.phone || '';
+    const generatedDate = new Date().toLocaleDateString();
+
+    const escCsv = (val) => {
+        const s = String(val || '');
+        return '"' + s.replace(/"/g, '""') + '"';
+    };
+
+    // Metadata header rows
+    let csv = '';
+    csv += `Teacher Name,${escCsv(teacherName)}\n`;
+    csv += `Subject,${escCsv(subjectName)}\n`;
+    csv += `School,${escCsv(schoolName)}\n`;
+    csv += `Level,${escCsv(levelName)}\n`;
+    csv += `Phone,${escCsv(phoneNumber)}\n`;
+    csv += `Generated,${escCsv(generatedDate)}\n\n`;
+
+    // Column headers
+    csv += 'Topic,Week,Status,Periods Planned,Periods Used,% Complete,Last Taught,Next Start,Remarks\n';
     
     lessons.forEach(lesson => {
         const progress = lesson.periodsPlanned > 0 
@@ -795,7 +960,21 @@ async function exportToCSV() {
         csv += row + '\n';
     });
     
-    downloadFile(csv, 'teaching-progress.csv', 'text/csv');
+    // Build descriptive filename: teaching-progress-<teacher>-YYYY-MM-DD.csv
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dateStamp = `${yyyy}-${mm}-${dd}`;
+    const safeTeacher = (teacherName || 'unknown')
+        .toString()
+        .trim()
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase();
+    const filename = `teaching-progress-${safeTeacher}-${dateStamp}.csv`;
+    downloadFile(csv, filename, 'text/csv');
     closeExportModalWindow();
 }
 
@@ -805,11 +984,23 @@ async function exportToPDF() {
     // Sort by week
     lessons.sort((a, b) => (a.week || 0) - (b.week || 0));
     
+    // Get profile details for report header
+    const profile = getProfile();
+    const teacherName = (profile?.teacherName) || '-';
+    const subjectName = (profile?.subjectName) || '-';
+    const schoolName = (profile?.schoolName) || '-';
+    const levelName = (profile?.classroom) || '-';
+    const phoneNumber = (profile?.phone) || '-';
+
     const today = new Date().toLocaleDateString();
     const totalTopics = lessons.length;
     const completed = lessons.filter(l => l.status === 'completed').length;
     const inProgress = lessons.filter(l => l.status === 'in-progress').length;
     const notStarted = lessons.filter(l => l.status === 'not-started').length;
+    
+    // Pull system footer content from the app footer for inclusion
+    const systemFooterEl = document.querySelector('.app-footer');
+    const systemFooterHTML = systemFooterEl ? systemFooterEl.innerHTML : '';
     
     let html = `
 <!DOCTYPE html>
@@ -834,8 +1025,14 @@ async function exportToPDF() {
 </head>
 <body>
     <h1>📚 Teaching Progress Summary Report</h1>
-    <p><strong>School:</strong> Vocational Training Followup, Tanzania</p>
-    <p><strong>Generated:</strong> ${today}</p>
+    <div style="background:#f7f9fc; padding: 12px 16px; border: 1px solid #e1e8f0; border-radius: 8px; margin: 12px 0;">
+        <p style="margin:4px 0"><strong>Teacher:</strong> ${escapeHTML(teacherName)}</p>
+        <p style="margin:4px 0"><strong>Subject:</strong> ${escapeHTML(subjectName)}</p>
+        <p style="margin:4px 0"><strong>School:</strong> ${escapeHTML(schoolName)}</p>
+        <p style="margin:4px 0"><strong>Level:</strong> ${escapeHTML(levelName)}</p>
+        <p style="margin:4px 0"><strong>Phone:</strong> ${escapeHTML(phoneNumber)}</p>
+        <p style="margin:4px 0"><strong>Generated:</strong> ${today}</p>
+    </div>
     
     <div class="summary">
         <div class="summary-item">
@@ -896,14 +1093,28 @@ async function exportToPDF() {
     </table>
     
     <div class="footer">
-        <p>This report was generated from the Teaching Progress Tracker PWA.</p>
+        <div>${systemFooterHTML}</div>
+        <p style="margin-top:8px;">This report was generated from the Teaching Progress Tracker PWA.</p>
         <p>For offline access and tracking, download the app or add to home screen on mobile.</p>
     </div>
 </body>
 </html>
     `;
-    
-    downloadFile(html, 'teaching-progress-summary.html', 'text/html');
+    // Build descriptive filename: teaching-progress-<teacher>-YYYY-MM-DD.html
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dateStamp = `${yyyy}-${mm}-${dd}`;
+    const safeTeacher = (teacherName || 'unknown')
+        .toString()
+        .trim()
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase();
+    const filename = `teaching-progress-${safeTeacher}-${dateStamp}.html`;
+    downloadFile(html, filename, 'text/html');
     closeExportModalWindow();
 }
 
@@ -975,10 +1186,20 @@ loadDefaultTopicsFormBtn.addEventListener('click', async () => {
     closeLoadTopicsModalFunc();
     if (confirm('Load standard curriculum? This will add topics to your current list.')) {
         showSyncIndicator('⏳ Loading curriculum...');
-        await seedInitialLessons();
+        showGlobalLoader('Loading default topics...', 'Applying to selected subject');
+        const profile = getProfile() || {};
+        const { addedCount, subject } = await seedInitialLessons(profile.subjectName);
         await renderAllColumns();
-        showSyncIndicator('✅ Curriculum loaded!');
-        alert('Standard curriculum loaded!');
+        if (addedCount > 0) {
+            showSyncIndicator('✅ Curriculum loaded!');
+            alert(`Loaded ${addedCount} default topics for ${subject || 'selected subject'}.`);
+        } else {
+            showSyncIndicator('ℹ️ No defaults for subject');
+            alert(`No default topics available for ${subject || 'this subject'}.
+\nYou can add topics manually or import from CSV via Load Topics.`);
+            if (typeof openLoadTopicsModal === 'function') openLoadTopicsModal();
+        }
+        hideGlobalLoader();
     }
 });
 
@@ -1011,9 +1232,18 @@ closeLoadTopicsBtn.addEventListener('click', closeLoadTopicsModalFunc);
 loadDefaultTopicsFormBtn.addEventListener('click', async () => {
     closeLoadTopicsModalFunc();
     if (confirm('Load standard curriculum? This will add topics to your current list.')) {
-        await seedInitialLessons();
+        showGlobalLoader('Loading default topics...', 'Applying to selected subject');
+        const profile = getProfile() || {};
+        const { addedCount, subject } = await seedInitialLessons(profile.subjectName);
         await renderAllColumns();
-        alert('Standard curriculum loaded!');
+        if (addedCount > 0) {
+            alert(`Loaded ${addedCount} default topics for ${subject || 'selected subject'}.`);
+        } else {
+            alert(`No default topics available for ${subject || 'this subject'}.
+\nYou can add topics manually or import from CSV via Load Topics.`);
+            if (typeof openLoadTopicsModal === 'function') openLoadTopicsModal();
+        }
+        hideGlobalLoader();
     }
 });
 
@@ -1078,17 +1308,9 @@ if (dangerDeleteAccountBtn) {
 
 if (adminUnlockBtn) {
     adminUnlockBtn.addEventListener('click', () => {
-        const user = (adminUsernameInput?.value || '').trim();
-        const pass = (adminPasswordInput?.value || '').trim();
-        if (user === 'DevSecure' && pass === 'lukoa123') {
-            localStorage.setItem('adminUnlocked', 'true');
-            adminUnlockStatus.textContent = 'Admin tools unlocked (local). For multi-user cleanup, use backend admin function.';
-            alert('🔓 Admin unlocked. Note: Client cannot delete other users. Use admin backend.');
-            applyRoleUIState();
-        } else {
-            adminUnlockStatus.textContent = 'Invalid admin credentials';
-            alert('❌ Invalid admin credentials');
-        }
+        // Local admin unlock disabled; require admin login credentials
+        adminUnlockStatus.textContent = 'Admin unlock is disabled. Please login with admin credentials.';
+        alert('❌ Admin unlock disabled. Use admin login credentials to access Admin Dashboard.');
     });
 }
 
@@ -1106,10 +1328,10 @@ function getSessionRole() {
 
 function applyRoleUIState() {
     const role = getSessionRole();
-    const unlocked = localStorage.getItem('adminUnlocked') === 'true';
-    const isAdmin = role === 'admin' || unlocked;
-    if (adminBadge) adminBadge.style.display = isAdmin ? 'inline-block' : 'none';
-    if (settingsBtn) settingsBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    const isAdmin = role === 'admin';
+    if (adminDashboardBtn) adminDashboardBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    // Settings should be available to all users
+    if (settingsBtn) settingsBtn.style.display = 'inline-block';
 }
 
 // Apply once on load
@@ -1318,11 +1540,11 @@ createProfileBtn.addEventListener('click', showCreateProfileModal);
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const name = loginTeacherNameInput.value.trim();
+    const identifier = loginTeacherNameInput.value.trim();
     const password = loginPasswordInput.value.trim();
 
     // Admin override: local admin login opens Admin Panel only
-    if (name === 'DevSecure' && password === 'lukoa123') {
+    if (identifier === 'DevSecure' && password === 'lukoa123') {
         try {
             createSecureSession('DevSecure', 'admin-local', 'admin');
             localStorage.setItem('adminUnlocked', 'true');
@@ -1331,7 +1553,7 @@ loginForm.addEventListener('submit', async (e) => {
             // Ensure normal content stays hidden
             const mainContent = document.querySelector('.main-content');
             if (mainContent) mainContent.classList.remove('visible');
-            openAdminPanel?.();
+            openAdminDashboard?.();
             return;
         } catch (err) {
             alert('❌ Admin login error: ' + err.message);
@@ -1340,19 +1562,28 @@ loginForm.addEventListener('submit', async (e) => {
     }
     
     // Use security module to validate and check rate limits
-    const securityCheck = secureLogin(name, password);
-    if (!securityCheck.success) {
-        alert('❌ ' + securityCheck.error);
+    // Accept username or email; resolve username to email if needed
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let email = identifier;
+    if (!emailRegex.test(identifier)) {
+        try {
+            showGlobalLoader('Resolving account...', 'Checking username');
+            email = await (window.resolveEmailForUsername?.(identifier));
+        } catch (err) {
+            console.warn('Username resolution failed:', err);
+        } finally {
+            hideGlobalLoader();
+        }
+    }
+    const passCheck = validatePassword(password);
+    if (!passCheck.valid) {
+        alert('❌ ' + passCheck.error);
         recordFailedLogin();
-        loginPasswordInput.value = '';
         return;
     }
     
-    const validatedName = securityCheck.validatedUsername;
-    
     try {
-        // Try to login with Firebase first (for new cloud-based logins)
-        const email = `${validatedName.toLowerCase().replace(/\s+/g, '.')}@teaching.local`;
+        // Try to login with Firebase first (cloud-based) using username-resolved email
         const firebaseResult = await loginTeacher(email, password);
         
         if (firebaseResult.success) {
@@ -1360,12 +1591,22 @@ loginForm.addEventListener('submit', async (e) => {
             await clearAllLessons();
             await pullCloudDataToLocal();
             
-            // Create secure session
-            createSecureSession(validatedName, firebaseResult.uid, 'user');
+            // Determine role from ID token custom claims
+            let role = 'user';
+            try {
+                const tokenResult = await auth.currentUser.getIdTokenResult(true);
+                if (tokenResult?.claims?.admin) role = 'admin';
+            } catch (e) { /* ignore */ }
+            // Create secure session with detected role
+            createSecureSession(email, firebaseResult.uid, role);
             
-            // Save profile locally
+            // Fetch teacher profile from Firestore and save locally
+            const teacherDoc = await (window.getTeacherProfile?.(firebaseResult.uid));
             const profile = {
-                teacherName: validatedName,
+                teacherName: teacherDoc?.teacherName || getProfile()?.teacherName || '',
+                subjectName: teacherDoc?.subject || getProfile()?.subjectName || '',
+                schoolName: teacherDoc?.schoolName || getProfile()?.schoolName || '',
+                classroom: teacherDoc?.classroom || getProfile()?.classroom || '',
                 email: email,
                 uid: firebaseResult.uid
             };
@@ -1388,6 +1629,9 @@ loginForm.addEventListener('submit', async (e) => {
             await renderAllColumns();
             alert('✅ Welcome back! Cloud sync enabled - your data is synchronized.');
             applyRoleUIState();
+            if (role === 'admin') {
+                adminDashboardBtn?.style.setProperty('display', 'inline-block');
+            }
             loginForm.reset();
             return;
         }
@@ -1399,15 +1643,15 @@ loginForm.addEventListener('submit', async (e) => {
     const profile = getProfile();
     if (!profile) {
         recordFailedLogin();
-        alert('❌ No profiles found. Please create a profile first.');
+        alert('❌ No local profile found. Please create a profile first or login with cloud email.');
         showAuthLanding();
         return;
     }
     
     // Verify credentials match stored profile (case-sensitive for password)
-    if (profile.teacherName === validatedName && profile.password === password) {
+    if ((profile.email || profile.teacherName) === email && profile.password === password) {
         // Valid local login
-        createSecureSession(validatedName, profile.uid || 'local', 'user');
+        createSecureSession(email, profile.uid || 'local', 'user');
         recordSuccessfulLogin();
         
         const mainContent = document.querySelector('.main-content');
@@ -1415,12 +1659,12 @@ loginForm.addEventListener('submit', async (e) => {
         updateHeaderWithTeacherInfo();
         loginModal.style.display = 'none';
         authLanding.style.display = 'none';
-        alert('✅ Welcome back, ' + validatedName + '!');
+        alert('✅ Welcome back!');
         applyRoleUIState();
         loginForm.reset();
     } else {
         recordFailedLogin();
-        alert('❌ Invalid Teacher Name or Password. Please try again.');
+        alert('❌ Invalid Email or Password. Please try again.');
         loginPasswordInput.value = '';
     }
 });
@@ -1613,8 +1857,14 @@ submitSubjectBtn.addEventListener('click', async () => {
         // Save the complete profile locally
         saveProfile(profileData);
         
-        // Seed new topics for this user
-        await seedInitialLessons();
+        // Seed new topics for this user based on selected subject
+        showGlobalLoader('Finalizing setup...', 'Seeding topics and starting sync');
+        const { addedCount, subject } = await seedInitialLessons(profileData.subjectName);
+        if (addedCount === 0) {
+            alert(`No default topics available for ${subject || 'this subject'}.
+\nYou can add topics manually or import from CSV via Load Topics.`);
+            if (typeof openLoadTopicsModal === 'function') openLoadTopicsModal();
+        }
         
         // Push all topics to Firebase cloud
         await pushLocalDataToCloud();
@@ -1641,12 +1891,14 @@ submitSubjectBtn.addEventListener('click', async () => {
         await renderAllColumns();
         
         alert('✅ Profile created! Cloud sync enabled - your data is automatically backed up.');
+        hideGlobalLoader();
         
         // Clear temp data
         window.tempProfileData = null;
     } catch (error) {
         console.error('Profile creation error:', error);
         alert('❌ Error creating profile: ' + error.message + '\n\nYour registration data is saved locally. Please try again.');
+        hideGlobalLoader();
     }
 });
 
@@ -2130,6 +2382,13 @@ closeViewTopicsBtn.addEventListener('click', closeViewTopicsModal);
 closeSubjectSelectionBtn.addEventListener('click', () => {
     subjectSelectionModal.style.display = 'none';
     selectedSubject = null;
+});
+// Toggle password visibility in login modal
+const toggleLoginPasswordBtn = document.getElementById('toggleLoginPassword');
+toggleLoginPasswordBtn?.addEventListener('click', () => {
+    const isHidden = loginPasswordInput.type === 'password';
+    loginPasswordInput.type = isHidden ? 'text' : 'password';
+    toggleLoginPasswordBtn.textContent = isHidden ? '🙈' : '👁️';
 });
 
 // Topics search
