@@ -1397,13 +1397,27 @@ submitSubjectBtn.addEventListener('click', async () => {
     };
     
     try {
+        // IMPORTANT: Email is REQUIRED for Firebase authentication
+        const email = profileData.email ? profileData.email.trim() : null;
+        
+        if (!email) {
+            alert('❌ Email address is REQUIRED to create an account.\n\nPlease go back and enter your email address.');
+            return;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            alert('❌ Invalid email format. Please enter a valid email address (e.g., your.name@school.com)');
+            return;
+        }
+        
         // Register user in Firebase
-        const email = profileData.email || `${profileData.teacherName.toLowerCase().replace(/\s+/g, '.')}@teaching.local`;
         const firebaseResult = await signUpTeacher(email, profileData.password, profileData);
         
         if (!firebaseResult.success) {
             console.error('❌ Firebase signup failed:', firebaseResult.error);
-            alert('❌ Cloud registration failed: ' + firebaseResult.error + '\n\nPlease check your internet connection and try again.');
+            alert('❌ Cloud registration failed: ' + firebaseResult.error + '\n\nPlease check:\n1. Email is valid and not already registered\n2. Password meets requirements\n3. You have internet connection');
             // Keep the form open so user can retry
             return;
         }

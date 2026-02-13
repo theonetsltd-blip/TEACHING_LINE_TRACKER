@@ -97,10 +97,10 @@ async function signUpTeacher(email, password, teacherProfile) {
         await firestore.collection('teachers').doc(currentUser.uid).set({
             email: email,
             teacherName: teacherProfile.teacherName,
-            subject: teacherProfile.subject,
-            schoolName: teacherProfile.schoolName,
-            phone: teacherProfile.phone,
-            classroom: teacherProfile.classroom,
+            subject: teacherProfile.subjectName || teacherProfile.subject || '',
+            schoolName: teacherProfile.schoolName || '',
+            phone: teacherProfile.phone || '',
+            classroom: teacherProfile.classroom || '',
             createdAt: new Date(),
             updatedAt: new Date()
         });
