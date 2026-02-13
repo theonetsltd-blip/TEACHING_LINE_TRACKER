@@ -253,6 +253,7 @@ document.getElementById('lessonForm').addEventListener('submit', async (e) => {
         }
         
         // Save to database
+        showSyncIndicator('💾 Saving topic...');
         const savedId = await saveLessonToDB(lesson);
         console.log('Lesson saved with ID:', savedId);
         
@@ -267,7 +268,9 @@ document.getElementById('lessonForm').addEventListener('submit', async (e) => {
         }
         
         // Re-render
+        showSyncIndicator('🔄 Updating view...');
         await renderAllColumns();
+        showSyncIndicator('✅ Topic saved');
         
         // Close modal
         closeLessonModal();

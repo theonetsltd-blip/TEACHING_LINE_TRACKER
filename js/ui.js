@@ -706,8 +706,15 @@ function setupColumnDragTargets() {
                 const lesson = await getLessonByID(lessonId);
                 if (lesson) {
                     lesson.status = newStatus;
-                    await saveLessonToDB(lesson);
-                    await renderAllColumns();
+                    try {
+                        showSyncIndicator('🔄 Moving topic...');
+                        await saveLessonToDB(lesson);
+                        await renderAllColumns();
+                        showSyncIndicator('✅ Topic moved');
+                    } catch (err) {
+                        console.error('Error moving topic:', err);
+                        showSyncIndicator('❌ Move failed');
+                    }
                 }
             }
         });
@@ -739,12 +746,20 @@ async function importTopicsFromCSV(csvText) {
                 remarks: values[7] || ''
             };
             
+            showSyncIndicator('📥 Importing topics...');
             await saveLessonToDB(lesson);
             importedCount++;
         }
         
         alert(`Successfully imported ${importedCount} topics!`);
-        await renderAllColumns();
+        try {
+            showSyncIndicator('🔄 Updating view...');
+            await renderAllColumns();
+            showSyncIndicator('✅ Topics imported');
+        } catch (error) {
+            console.error('Error re-rendering after import:', error);
+            showSyncIndicator('❌ Render failed');
+        }
     } catch (error) {
         console.error('Error importing CSV:', error);
         alert('Error importing file. Check console for details.');
@@ -1608,6 +1623,15 @@ submitSubjectBtn.addEventListener('click', async () => {
         console.log('🔄 Starting MANDATORY cloud sync on signup...');
         await startAutoSync();
         
+        // Create secure session for the new user
+        createSecureSession(profileData.teacherName, firebaseResult.uid, 'user');
+        applyRoleUIState?.();
+        
+        // Update header with teacher info
+        if (typeof updateHeaderWithTeacherInfo === 'function') {
+            updateHeaderWithTeacherInfo();
+        }
+
         // Show main content
         const mainContent = document.querySelector('.main-content');
         mainContent.classList.add('visible');
@@ -2059,8 +2083,15 @@ closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
 cancelDeleteBtn.addEventListener('click', closeDeleteModal);
 confirmDeleteBtn.addEventListener('click', async () => {
     if (currentDeletingLessonId) {
-        await deleteLessonFromDB(currentDeletingLessonId);
-        await renderAllColumns();
+        try {
+            showSyncIndicator('🗑️ Deleting topic...');
+            await deleteLessonFromDB(currentDeletingLessonId);
+            await renderAllColumns();
+            showSyncIndicator('✅ Topic deleted');
+        } catch (err) {
+            console.error('Error deleting topic:', err);
+            showSyncIndicator('❌ Delete failed');
+        }
         closeDeleteModal();
     }
 });
