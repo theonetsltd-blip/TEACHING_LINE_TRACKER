@@ -14,10 +14,28 @@ const firebaseConfig = {
     measurementId: "G-TQWFMQ2QYH"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const firestore = firebase.firestore(); // Firestore (not to be confused with IndexedDB 'db')
+// Ensure Firebase is ready before initializing
+let auth = null;
+let firestore = null;
+
+function initializeFirebase() {
+    try {
+        if (!window.firebase) {
+            throw new Error('Firebase SDK not loaded');
+        }
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        firestore = firebase.firestore();
+        console.log('✓ Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Firebase initialization failed:', error.message);
+        return false;
+    }
+}
+
+// Initialize on script load
+initializeFirebase();
 
 let currentUser = null;
 let autoSyncEnabled = false; // Automatic sync flag
@@ -28,6 +46,10 @@ let autoSyncEnabled = false; // Automatic sync flag
 
 // Sign up new teacher (REQUIRED - No local-only option)
 async function signUpTeacher(email, password, teacherProfile) {
+    if (!auth || !firestore) {
+        return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
+    }
+    
     try {
         // Create Firebase auth user
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
@@ -62,6 +84,10 @@ async function signUpTeacher(email, password, teacherProfile) {
 
 // Login teacher (REQUIRED - Must authenticate to use app)
 async function loginTeacher(email, password) {
+    if (!auth || !firestore) {
+        return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
+    }
+    
     try {
         const userCredential = await auth.signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
@@ -81,6 +107,10 @@ async function loginTeacher(email, password) {
 
 // Logout
 async function logoutTeacher() {
+    if (!auth) {
+        return { success: false, error: 'Firebase not initialized.' };
+    }
+    
     try {
         await auth.signOut();
         currentUser = null;
