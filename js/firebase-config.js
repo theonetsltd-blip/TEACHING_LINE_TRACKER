@@ -198,13 +198,28 @@ async function saveLessonToCloud(lesson) {
         return { success: false, queued: true, error: 'Queued for sync after login' };
     }
     
+    // Skip if lesson data is invalid
+    if (!lesson || !lesson.id) {
+        console.warn('⚠️ Skipping invalid lesson:', lesson);
+        return { success: false, error: 'Invalid lesson data' };
+    }
+    
     try {
         const lessonRef = firestore.collection('teachers').doc(currentUser.uid).collection('lessons').doc(lesson.id?.toString() || 'temp');
-        await lessonRef.set({
+        const lessonData = {
             ...lesson,
             syncedAt: new Date(),
-            localId: lesson.id
-        }, { merge: true });
+            localId: lesson.id || ''
+        };
+        
+        // Remove any undefined fields
+        Object.keys(lessonData).forEach(key => {
+            if (lessonData[key] === undefined) {
+                delete lessonData[key];
+            }
+        });
+        
+        await lessonRef.set(lessonData, { merge: true });
         
         console.log('✓ Lesson synced to cloud:', lesson.id);
         return { success: true };
