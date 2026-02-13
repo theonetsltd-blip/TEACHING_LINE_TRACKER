@@ -84,15 +84,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasValidSession = typeof isSessionValid === 'function' ? isSessionValid() : false;
         const profile = typeof getProfile === 'function' ? getProfile() : null;
         
-        if (hasValidSession && profile && profile.teacherName) {
-            // Valid session exists - show content
+        // ALSO check if Firebase has an active user (session persistence)
+        let firebaseUser = null;
+        if (typeof auth !== 'undefined' && auth) {
+            firebaseUser = auth.currentUser;
+        }
+        
+        if ((hasValidSession || firebaseUser) && profile && profile.teacherName) {
+            // Valid session exists (local or Firebase) - show content
             console.log('✓ Valid session found. Loading app...');
             document.getElementById('authLanding').style.display = 'none';
             mainContent.classList.add('visible');
             if (typeof updateHeaderWithTeacherInfo === 'function') {
                 updateHeaderWithTeacherInfo();
             }
-        } else if (profile && profile.teacherName && !hasValidSession) {
+        } else if (profile && profile.teacherName && !hasValidSession && !firebaseUser) {
             // Profile exists but session invalid - show login
             console.log('⚠️ Session expired. Requiring login...');
             if (typeof clearSession === 'function') {
