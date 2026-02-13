@@ -17,25 +17,33 @@ const firebaseConfig = {
 // Ensure Firebase is ready before initializing
 let auth = null;
 let firestore = null;
+let firebaseReady = false;
 
 function initializeFirebase() {
     try {
         if (!window.firebase) {
-            throw new Error('Firebase SDK not loaded');
+            console.warn('Firebase SDK not loaded yet, retrying...');
+            setTimeout(initializeFirebase, 100);
+            return;
         }
+        if (firebaseReady) return; // Already initialized
+        
         firebase.initializeApp(firebaseConfig);
         auth = firebase.auth();
         firestore = firebase.firestore();
+        firebaseReady = true;
         console.log('✓ Firebase initialized successfully');
         return true;
     } catch (error) {
         console.error('Firebase initialization failed:', error.message);
+        // Retry in 500ms
+        setTimeout(initializeFirebase, 500);
         return false;
     }
 }
 
-// Initialize on script load
-initializeFirebase();
+// Initialize on script load with small delay to ensure compat libs are ready
+setTimeout(initializeFirebase, 100);
 
 let currentUser = null;
 let autoSyncEnabled = false; // Automatic sync flag
@@ -46,6 +54,13 @@ let autoSyncEnabled = false; // Automatic sync flag
 
 // Sign up new teacher (REQUIRED - No local-only option)
 async function signUpTeacher(email, password, teacherProfile) {
+    // Wait for Firebase to be ready (with timeout)
+    let retries = 0;
+    while (!firebaseReady && retries < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
+    }
+    
     if (!auth || !firestore) {
         return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
     }
@@ -84,6 +99,13 @@ async function signUpTeacher(email, password, teacherProfile) {
 
 // Login teacher (REQUIRED - Must authenticate to use app)
 async function loginTeacher(email, password) {
+    // Wait for Firebase to be ready (with timeout)
+    let retries = 0;
+    while (!firebaseReady && retries < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
+    }
+    
     if (!auth || !firestore) {
         return { success: false, error: 'Firebase not initialized. Please refresh the page.' };
     }

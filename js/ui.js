@@ -1377,6 +1377,8 @@ profileForm.addEventListener('submit', (e) => {
         classroom: sanitizeInput(classroomInput.value)
     };
     
+    console.log('✓ Personal details saved temporarily. Select subject to complete registration.');
+    
     // Open subject selection modal
     openSubjectSelectionModal();
 });
@@ -1400,9 +1402,14 @@ submitSubjectBtn.addEventListener('click', async () => {
         const firebaseResult = await signUpTeacher(email, profileData.password, profileData);
         
         if (!firebaseResult.success) {
-            alert('❌ Cloud registration failed: ' + firebaseResult.error);
+            console.error('❌ Firebase signup failed:', firebaseResult.error);
+            alert('❌ Cloud registration failed: ' + firebaseResult.error + '\n\nPlease check your internet connection and try again.');
+            // Keep the form open so user can retry
             return;
         }
+        
+        // Firebase signup succeeded - user account created
+        console.log('✓ User registered in Firebase:', firebaseResult.uid);
         
         // Clear old data before saving new profile
         await clearAllLessons();
@@ -1429,9 +1436,12 @@ submitSubjectBtn.addEventListener('click', async () => {
         await renderAllColumns();
         
         alert('✅ Profile created! Cloud sync enabled - your data is automatically backed up.');
+        
+        // Clear temp data
+        window.tempProfileData = null;
     } catch (error) {
         console.error('Profile creation error:', error);
-        alert('❌ Error creating profile: ' + error.message);
+        alert('❌ Error creating profile: ' + error.message + '\n\nYour registration data is saved locally. Please try again.');
     }
 });
 
