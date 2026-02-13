@@ -17,7 +17,7 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.firestore();
+const firestore = firebase.firestore(); // Firestore (not to be confused with IndexedDB 'db')
 
 let currentUser = null;
 let autoSyncEnabled = false; // Automatic sync flag
@@ -34,7 +34,7 @@ async function signUpTeacher(email, password, teacherProfile) {
         currentUser = userCredential.user;
         
         // Save teacher profile to Firestore (MANDATORY)
-        await db.collection('teachers').doc(currentUser.uid).set({
+        await firestore.collection('teachers').doc(currentUser.uid).set({
             email: email,
             teacherName: teacherProfile.teacherName,
             subject: teacherProfile.subject,
@@ -123,7 +123,7 @@ async function saveLessonToCloud(lesson) {
     }
     
     try {
-        const lessonRef = db.collection('teachers').doc(currentUser.uid).collection('lessons').doc(lesson.id?.toString() || 'temp');
+        const lessonRef = firestore.collection('teachers').doc(currentUser.uid).collection('lessons').doc(lesson.id?.toString() || 'temp');
         await lessonRef.set({
             ...lesson,
             syncedAt: new Date(),
@@ -149,7 +149,7 @@ async function getAllLessonsFromCloud() {
     }
     
     try {
-        const snapshot = await db.collection('teachers').doc(currentUser.uid).collection('lessons').get();
+        const snapshot = await firestore.collection('teachers').doc(currentUser.uid).collection('lessons').get();
         const lessons = [];
         snapshot.forEach(doc => {
             lessons.push({ id: doc.data().localId, ...doc.data() });
@@ -173,7 +173,7 @@ async function deleteLessonFromCloud(lessonId) {
     
     try {
         // Try to find and delete the document
-        const snapshot = await db.collection('teachers').doc(currentUser.uid).collection('lessons')
+        const snapshot = await firestore.collection('teachers').doc(currentUser.uid).collection('lessons')
             .where('localId', '==', lessonId).limit(1).get();
         
         if (!snapshot.empty) {
@@ -244,7 +244,7 @@ function setupRealtimeSyncListener() {
     if (!currentUser || !autoSyncEnabled) return null;
     
     console.log('Setting up real-time cloud sync listener...');
-    const unsubscribe = db.collection('teachers').doc(currentUser.uid).collection('lessons')
+    const unsubscribe = firestore.collection('teachers').doc(currentUser.uid).collection('lessons')
         .onSnapshot(
             (snapshot) => {
                 const lessons = [];
