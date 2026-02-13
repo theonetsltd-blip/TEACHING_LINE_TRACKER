@@ -39,9 +39,34 @@ async function initDB() {
     });
 }
 
+// Ensure DB is ready before operations
+async function ensureDBReady() {
+    if (!db) {
+        try {
+            await initDB();
+        } catch (e) {
+            console.warn('⚠️ ensureDBReady: initDB failed:', e);
+        }
+    }
+    return !!db;
+}
+
 // Add or update a lesson (with MANDATORY automatic cloud sync)
 async function saveLessonToDB(lesson) {
     return new Promise(async (resolve, reject) => {
+        const ready = await ensureDBReady();
+        if (!ready) {
+            console.warn('⚠️ DB not ready; skipping local save, will attempt cloud sync only');
+            try {
+                const syncResult = await saveLessonToCloud(lesson);
+                if (syncResult.success || syncResult.queued) {
+                    resolve(null);
+                    return;
+                }
+            } catch (err) {
+                return reject(err);
+            }
+        }
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
@@ -97,7 +122,13 @@ async function getAllLessons() {
 
 // Get lesson by ID
 async function getLessonByID(id) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        const ready = await ensureDBReady();
+        if (!ready) {
+            console.warn('⚠️ DB not initialized; getLessonByID returning null');
+            resolve(null);
+            return;
+        }
         const transaction = db.transaction([STORE_NAME], 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(id);
@@ -115,7 +146,13 @@ async function getLessonByID(id) {
 
 // Get lessons by status
 async function getLessonsByStatus(status) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        const ready = await ensureDBReady();
+        if (!ready) {
+            console.warn('⚠️ DB not initialized; getLessonsByStatus returning []');
+            resolve([]);
+            return;
+        }
         const transaction = db.transaction([STORE_NAME], 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const index = store.index('status');
@@ -136,6 +173,20 @@ async function getLessonsByStatus(status) {
 // Delete a lesson (with MANDATORY automatic cloud sync)
 async function deleteLessonFromDB(id) {
     return new Promise(async (resolve, reject) => {
+        const ready = await ensureDBReady();
+        if (!ready) {
+            console.warn('⚠️ DB not initialized; deleteLessonFromDB skipping local delete');
+            // Still attempt cloud deletion
+            try {
+                const syncResult = await deleteLessonFromCloud(id);
+                if (syncResult.success || syncResult.queued) {
+                    resolve(true);
+                    return;
+                }
+            } catch (e) {
+                return reject(e);
+            }
+        }
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(id);
@@ -167,26 +218,51 @@ async function deleteLessonFromDB(id) {
 
 // Clear all lessons (for reset)
 async function clearAllLessons() {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.clear();
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Ensure the database is initialized before attempting to clear
+            if (!db) {
+                try {
+                    await initDB();
+                } catch (initError) {
+                    console.warn('⚠️ initDB failed before clearAllLessons:', initError);
+                }
+            }
 
-        request.onsuccess = () => {
-            console.log('All lessons cleared');
-            resolve(true);
-        };
+            if (!db) {
+                console.warn('⚠️ Database not initialized; skipping clearAllLessons');
+                resolve(false);
+                return;
+            }
 
-        request.onerror = () => {
-            console.error('Error clearing lessons:', request.error);
-            reject(request.error);
-        };
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.clear();
+
+            request.onsuccess = () => {
+                console.log('All lessons cleared');
+                resolve(true);
+            };
+
+            request.onerror = () => {
+                console.error('Error clearing lessons:', request.error);
+                reject(request.error);
+            };
+        } catch (error) {
+            reject(error);
+        }
     });
 }
 
 // Check if database is empty (for initial seed)
 async function isDatabaseEmpty() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        const ready = await ensureDBReady();
+        if (!ready) {
+            console.warn('⚠️ DB not initialized; treating as empty');
+            resolve(true);
+            return;
+        }
         const transaction = db.transaction([STORE_NAME], 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.count();
@@ -816,3 +892,35 @@ async function exportLessonsToArray() {
         }).catch(reject);
     });
 }
+
+// RESET PROFILE - Clear all data (lessons, session, profile)
+async function resetAllData() {
+    try {
+        console.log('🔄 Starting complete profile reset...');
+        
+        // Clear IndexedDB lessons
+        await clearAllLessons();
+        console.log('✓ Local lessons cleared');
+        
+        // Clear local storage
+        localStorage.removeItem('sessionData');
+        localStorage.removeItem('teacherProfile');
+        localStorage.removeItem('selectedSubject');
+        console.log('✓ Session and profile cleared from localStorage');
+        
+        // Clear session storage
+        sessionStorage.clear();
+        console.log('✓ Session storage cleared');
+        
+        console.log('✅ Profile reset complete! Redirecting to login...');
+        
+        // Redirect to home page
+        window.location.href = window.location.origin + window.location.pathname;
+        
+        return { success: true, message: 'All data cleared successfully' };
+    } catch (error) {
+        console.error('❌ Error resetting data:', error);
+        return { success: false, error: error.message };
+    }
+}
+

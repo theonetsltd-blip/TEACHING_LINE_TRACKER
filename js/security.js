@@ -143,16 +143,14 @@ function validatePassword(password) {
         return { valid: false, error: 'Password is too long' };
     }
     
-    // Check for at least one uppercase, one lowercase, one number
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
+    // Relaxed rule: require at least one letter and one number (no uppercase requirement)
+    const hasLetter = /[A-Za-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
     
-    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+    if (!hasLetter || !hasNumber) {
         return { 
             valid: false, 
-            error: 'Password must contain uppercase, lowercase, and numbers' 
+            error: 'Password must contain letters and numbers' 
         };
     }
     
@@ -163,10 +161,11 @@ function validatePassword(password) {
 // SESSION MANAGEMENT
 // ========================
 
-function createSecureSession(teacherName, uid) {
+function createSecureSession(teacherName, uid, role = 'user') {
     const sessionData = {
         username: sanitizeInput(teacherName),
         uid: uid,
+        role: role,
         loginTime: Date.now(),
         lastActivity: Date.now(),
         deviceId: DEVICE_ID,

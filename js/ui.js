@@ -112,6 +112,27 @@ const statusSelect = document.getElementById('status');
 // Buttons
 const exportBtn = document.getElementById('exportBtn');
 const settingsBtn = document.getElementById('settingsBtn');
+const adminBadge = document.getElementById('adminBadge');
+
+// Danger Zone elements
+const dangerDeleteCloudBtn = document.getElementById('dangerDeleteCloudBtn');
+const dangerDeleteAccountBtn = document.getElementById('dangerDeleteAccountBtn');
+const confirmDeleteCloudInput = document.getElementById('confirmDeleteCloudInput');
+const confirmDeleteAccountInput = document.getElementById('confirmDeleteAccountInput');
+const adminUsernameInput = document.getElementById('adminUsernameInput');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminUnlockBtn = document.getElementById('adminUnlockBtn');
+const adminUnlockStatus = document.getElementById('adminUnlockStatus');
+const dangerZone = document.getElementById('dangerZone');
+
+// Admin Panel elements
+const adminPanelModal = document.getElementById('adminPanelModal');
+const closeAdminPanelBtn = document.getElementById('closeAdminPanelBtn');
+const backFromAdminBtn = document.getElementById('backFromAdminBtn');
+const adminDeleteCloudBtn = document.getElementById('adminDeleteCloudBtn');
+const adminDeleteAccountBtn = document.getElementById('adminDeleteAccountBtn');
+const adminConfirmDeleteCloudInput = document.getElementById('adminConfirmDeleteCloudInput');
+const adminConfirmDeleteAccountInput = document.getElementById('adminConfirmDeleteAccountInput');
 const loadTopicsBtn = document.getElementById('loadTopicsBtn');
 const loadTopicsModal = document.getElementById('loadTopicsModal');
 const closeLoadTopicsModalBtn = document.getElementById('closeLoadTopicsModalBtn');
@@ -375,6 +396,15 @@ function closeExportModalWindow() {
 
 function openSettingsModal() {
     settingsModal.style.display = 'flex';
+    const unlocked = localStorage.getItem('adminUnlocked') === 'true';
+    if (adminUnlockStatus) {
+        adminUnlockStatus.textContent = unlocked ? 'Admin tools unlocked (local). Use admin backend for multi-user cleanup.' : '';
+    }
+
+    // Show Danger Zone only for admin
+    const role = getSessionRole();
+    const isAdmin = role === 'admin' || unlocked;
+    if (dangerZone) dangerZone.style.display = isAdmin ? 'block' : 'none';
 }
 
 function closeSettingsModal() {
@@ -421,6 +451,45 @@ function showCreateProfileModal() {
     createProfileModal.style.display = 'flex';
     teacherNameInput.focus();
 }
+
+function openAdminPanel() {
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.classList.remove('visible');
+    if (adminPanelModal) adminPanelModal.style.display = 'flex';
+}
+
+function closeAdminPanel() {
+    if (adminPanelModal) adminPanelModal.style.display = 'none';
+}
+
+closeAdminPanelBtn?.addEventListener('click', closeAdminPanel);
+backFromAdminBtn?.addEventListener('click', () => {
+    closeAdminPanel();
+    showAuthLanding();
+});
+
+adminDeleteCloudBtn?.addEventListener('click', async () => {
+    const confirmText = (adminConfirmDeleteCloudInput?.value || '').trim();
+    const result = await (window.cloudCleanup?.deleteMyCloudLessons?.({ confirmText }) || Promise.resolve({ success: false, error: 'Cleanup helper unavailable' }));
+    if (result.success) {
+        alert(`✅ Deleted ${result.deleted} cloud lessons for your account.`);
+        await clearAllLessons().catch(() => {});
+        await renderAllColumns().catch(() => {});
+    } else {
+        alert('❌ Could not delete cloud lessons: ' + (result.error || 'Unknown error'));
+    }
+});
+
+adminDeleteAccountBtn?.addEventListener('click', async () => {
+    const confirmText = (adminConfirmDeleteAccountInput?.value || '').trim();
+    const result = await (window.cloudCleanup?.deleteMyAccount?.({ confirmText }) || Promise.resolve({ success: false, error: 'Account helper unavailable' }));
+    if (result.success) {
+        alert('✅ Your account has been deleted. The app will reset.');
+        await resetAllData();
+    } else {
+        alert('❌ Could not delete account: ' + (result.error || 'Unknown error'));
+    }
+});
 
 function openLoginModal() {
     loginModal.style.display = 'flex';
@@ -954,6 +1023,83 @@ exportBtn.addEventListener('click', openExportModal);
 // Settings button
 settingsBtn.addEventListener('click', openSettingsModal);
 
+// Danger Zone actions
+if (dangerDeleteCloudBtn) {
+    dangerDeleteCloudBtn.addEventListener('click', async () => {
+        try {
+            const confirmText = (confirmDeleteCloudInput?.value || '').trim();
+            const result = await (window.cloudCleanup?.deleteMyCloudLessons?.({ confirmText }) || Promise.resolve({ success: false, error: 'Cleanup helper unavailable' }));
+            if (result.success) {
+                alert(`✅ Deleted ${result.deleted} cloud lessons for your account.`);
+                await clearAllLessons().catch(() => {});
+                await renderAllColumns().catch(() => {});
+            } else {
+                alert('❌ Could not delete cloud lessons: ' + (result.error || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Danger delete cloud error:', e);
+            alert('❌ Error: ' + e.message);
+        }
+    });
+}
+
+if (dangerDeleteAccountBtn) {
+    dangerDeleteAccountBtn.addEventListener('click', async () => {
+        try {
+            const confirmText = (confirmDeleteAccountInput?.value || '').trim();
+            const result = await (window.cloudCleanup?.deleteMyAccount?.({ confirmText }) || Promise.resolve({ success: false, error: 'Account helper unavailable' }));
+            if (result.success) {
+                alert('✅ Your account has been deleted. The app will reset.');
+                await resetAllData();
+            } else {
+                alert('❌ Could not delete account: ' + (result.error || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Danger delete account error:', e);
+            alert('❌ Error: ' + e.message);
+        }
+    });
+}
+
+if (adminUnlockBtn) {
+    adminUnlockBtn.addEventListener('click', () => {
+        const user = (adminUsernameInput?.value || '').trim();
+        const pass = (adminPasswordInput?.value || '').trim();
+        if (user === 'DevSecure' && pass === 'lukoa123') {
+            localStorage.setItem('adminUnlocked', 'true');
+            adminUnlockStatus.textContent = 'Admin tools unlocked (local). For multi-user cleanup, use backend admin function.';
+            alert('🔓 Admin unlocked. Note: Client cannot delete other users. Use admin backend.');
+            applyRoleUIState();
+        } else {
+            adminUnlockStatus.textContent = 'Invalid admin credentials';
+            alert('❌ Invalid admin credentials');
+        }
+    });
+}
+
+// ===== Role-based UI toggles =====
+function getSessionRole() {
+    try {
+        const data = localStorage.getItem('sessionData');
+        if (!data) return 'user';
+        const parsed = JSON.parse(data);
+        return parsed.role || 'user';
+    } catch (_) {
+        return 'user';
+    }
+}
+
+function applyRoleUIState() {
+    const role = getSessionRole();
+    const unlocked = localStorage.getItem('adminUnlocked') === 'true';
+    const isAdmin = role === 'admin' || unlocked;
+    if (adminBadge) adminBadge.style.display = isAdmin ? 'inline-block' : 'none';
+    if (settingsBtn) settingsBtn.style.display = isAdmin ? 'inline-block' : 'none';
+}
+
+// Apply once on load
+applyRoleUIState();
+
 // Profile Settings Modal
 editProfileBtn.addEventListener('click', openProfileSettingsModal);
 closeProfileSettingsBtn.addEventListener('click', closeProfileSettingsModal);
@@ -1159,6 +1305,24 @@ loginForm.addEventListener('submit', async (e) => {
     
     const name = loginTeacherNameInput.value.trim();
     const password = loginPasswordInput.value.trim();
+
+    // Admin override: local admin login opens Admin Panel only
+    if (name === 'DevSecure' && password === 'lukoa123') {
+        try {
+            createSecureSession('DevSecure', 'admin-local', 'admin');
+            localStorage.setItem('adminUnlocked', 'true');
+            authLanding.style.display = 'none';
+            loginModal.style.display = 'none';
+            // Ensure normal content stays hidden
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.classList.remove('visible');
+            openAdminPanel?.();
+            return;
+        } catch (err) {
+            alert('❌ Admin login error: ' + err.message);
+            return;
+        }
+    }
     
     // Use security module to validate and check rate limits
     const securityCheck = secureLogin(name, password);
@@ -1182,7 +1346,7 @@ loginForm.addEventListener('submit', async (e) => {
             await pullCloudDataToLocal();
             
             // Create secure session
-            createSecureSession(validatedName, firebaseResult.uid);
+            createSecureSession(validatedName, firebaseResult.uid, 'user');
             
             // Save profile locally
             const profile = {
@@ -1208,6 +1372,7 @@ loginForm.addEventListener('submit', async (e) => {
             
             await renderAllColumns();
             alert('✅ Welcome back! Cloud sync enabled - your data is synchronized.');
+            applyRoleUIState();
             loginForm.reset();
             return;
         }
@@ -1227,7 +1392,7 @@ loginForm.addEventListener('submit', async (e) => {
     // Verify credentials match stored profile (case-sensitive for password)
     if (profile.teacherName === validatedName && profile.password === password) {
         // Valid local login
-        createSecureSession(validatedName, profile.uid || 'local');
+        createSecureSession(validatedName, profile.uid || 'local', 'user');
         recordSuccessfulLogin();
         
         const mainContent = document.querySelector('.main-content');
@@ -1236,6 +1401,7 @@ loginForm.addEventListener('submit', async (e) => {
         loginModal.style.display = 'none';
         authLanding.style.display = 'none';
         alert('✅ Welcome back, ' + validatedName + '!');
+        applyRoleUIState();
         loginForm.reset();
     } else {
         recordFailedLogin();

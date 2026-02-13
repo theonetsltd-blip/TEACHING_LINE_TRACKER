@@ -41,7 +41,7 @@
                 <img src="assets/images/logo.png" alt="School Logo" class="logo">
             </div>
             <div class="header-content">
-                <h1> Teaching Progress Tracker</h1>
+                <h1> Teaching Progress Tracker <span id="adminBadge" style="display:none; margin-left:8px; padding:2px 8px; background:#c0392b; color:#fff; border-radius:12px; font-size:0.8rem; vertical-align:middle;">ADMIN</span></h1>
             </div>
             <div class="header-actions">
                 <button id="viewTopicsBtn" class="btn btn-secondary" title="View Topics">📖 View Topics</button>
@@ -257,7 +257,7 @@
                     
                     <div class="form-group">
                         <label for="resetNewPassword">New Password *</label>
-                        <input type="password" id="resetNewPassword" placeholder="Min 8 chars: Uppercase, lowercase, numbers + special chars">
+                        <input type="password" id="resetNewPassword" placeholder="Min 8 chars: letters and numbers">
                     </div>
                     
                     <div class="form-group">
@@ -294,7 +294,7 @@
 
                 <div class="form-group">
                     <label for="password">Password *</label>
-                    <input type="password" id="password" name="password" required placeholder="Min 8 chars: Uppercase, lowercase, numbers + special chars">
+                    <input type="password" id="password" name="password" required placeholder="Min 8 chars: letters and numbers">
                 </div>
 
                 <div class="form-group">
@@ -458,6 +458,27 @@
                     <p class="warning" style="font-size: 0.75rem; margin-top: var(--spacing-sm);">Delete all and restore defaults.</p>
                 </div>
 
+                <div class="form-group" id="dangerZone">
+                    <h3 style="color:#c0392b">Danger Zone</h3>
+                    <p style="font-size: 0.8rem; color:#c0392b;">These actions affect only YOUR account. Other users are not touched.</p>
+
+                    <label for="confirmDeleteCloudInput" style="font-size: 0.85rem;">Type <strong>DELETE</strong> to confirm:</label>
+                    <input id="confirmDeleteCloudInput" type="text" placeholder="DELETE" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                    <button id="dangerDeleteCloudBtn" class="btn btn-danger btn-block" style="margin-top: var(--spacing-sm);">🗑️ Delete My Cloud Lessons</button>
+
+                    <label for="confirmDeleteAccountInput" style="font-size: 0.85rem; margin-top: var(--spacing-md); display:block;">Type <strong>DELETE ACCOUNT</strong> to confirm:</label>
+                    <input id="confirmDeleteAccountInput" type="text" placeholder="DELETE ACCOUNT" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                    <button id="dangerDeleteAccountBtn" class="btn btn-danger btn-block" style="margin-top: var(--spacing-sm);">🧨 Delete My Account</button>
+
+                    <hr style="margin: var(--spacing-md) 0;">
+                    <h4>Admin Unlock (local)</h4>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary);">For system owner testing only. Does not delete other users from client.</p>
+                    <input id="adminUsernameInput" type="text" placeholder="Admin username" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                    <input id="adminPasswordInput" type="password" placeholder="Admin password" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                    <button id="adminUnlockBtn" class="btn btn-secondary btn-block" style="margin-top: var(--spacing-sm);">🔓 Unlock Admin Tools</button>
+                    <p id="adminUnlockStatus" style="font-size: 0.8rem; margin-top: var(--spacing-xs); color: var(--text-secondary);"></p>
+                </div>
+
                 <div class="form-actions">
                     <button id="closeSettingsBtn" class="btn btn-secondary">Close</button>
                 </div>
@@ -466,6 +487,38 @@
     </div>
 
     <!-- Profile Settings Modal -->
+        <!-- Admin Panel Modal -->
+        <div id="adminPanelModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h2>Admin Panel</h2>
+                    <button class="modal-close" id="closeAdminPanelBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">Admin tools for the system owner. Client-side actions are scoped to YOUR account only.</p>
+
+                    <div class="form-group">
+                        <h3>Per-User Cloud Cleanup</h3>
+                        <label for="adminConfirmDeleteCloudInput" style="font-size: 0.85rem;">Type <strong>DELETE</strong> to confirm:</label>
+                        <input id="adminConfirmDeleteCloudInput" type="text" placeholder="DELETE" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                        <button id="adminDeleteCloudBtn" class="btn btn-danger btn-block" style="margin-top: var(--spacing-sm);">🗑️ Delete My Cloud Lessons</button>
+
+                        <label for="adminConfirmDeleteAccountInput" style="font-size: 0.85rem; margin-top: var(--spacing-md); display:block;">Type <strong>DELETE ACCOUNT</strong> to confirm:</label>
+                        <input id="adminConfirmDeleteAccountInput" type="text" placeholder="DELETE ACCOUNT" style="width: 100%; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-top: var(--spacing-xs);">
+                        <button id="adminDeleteAccountBtn" class="btn btn-danger btn-block" style="margin-top: var(--spacing-sm);">🧨 Delete My Account</button>
+                    </div>
+
+                    <div class="form-group">
+                        <h3>Admin Backend Guidance</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary);">To clean up multiple test profiles or other users, deploy a Firebase Admin SDK Cloud Function. Do not expose global deletes in the client.</p>
+                    </div>
+
+                    <div class="form-actions">
+                        <button id="backFromAdminBtn" class="btn btn-secondary">Back</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     <div id="profileSettingsModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">

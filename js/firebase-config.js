@@ -462,3 +462,84 @@ async function smartSync() {
         return { success: false, error: error.message };
     }
 }
+
+// ========================
+// PER-USER CLOUD CLEANUP (SAFE)
+// ========================
+
+// Delete ONLY the current user's lessons in Firestore
+// This does NOT affect other users.
+// Returns a summary of deleted documents.
+async function deleteMyCloudLessons({ confirmText } = {}) {
+    if (!currentUser) {
+        return { success: false, error: 'Not authenticated' };
+    }
+
+    // Lightweight confirmation gate (UI can enforce stronger prompts)
+    if (confirmText !== 'DELETE') {
+        return { success: false, error: 'Confirmation required: type DELETE' };
+    }
+
+    try {
+        const userLessonsRef = firestore.collection('teachers')
+            .doc(currentUser.uid)
+            .collection('lessons');
+
+        let deleted = 0;
+        const pageSize = 200; // batch size per page
+
+        while (true) {
+            const snapshot = await userLessonsRef.limit(pageSize).get();
+            if (snapshot.empty) break;
+
+            const batch = firestore.batch();
+            snapshot.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            deleted += snapshot.size;
+        }
+
+        console.log(`✓ Deleted ${deleted} cloud lessons for user ${currentUser.uid}`);
+        return { success: true, deleted };
+    } catch (error) {
+        console.error('❌ Error deleting my cloud lessons:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// Delete ONLY the current user's account and profile
+// Requires recent authentication; UI should prompt for re-login if needed.
+async function deleteMyAccount({ confirmText } = {}) {
+    if (!currentUser) {
+        return { success: false, error: 'Not authenticated' };
+    }
+    if (confirmText !== 'DELETE ACCOUNT') {
+        return { success: false, error: 'Confirmation required: type DELETE ACCOUNT' };
+    }
+
+    try {
+        // Delete lessons first (best-effort)
+        await deleteMyCloudLessons({ confirmText: 'DELETE' });
+
+        // Delete teacher profile doc
+        const teacherDocRef = firestore.collection('teachers').doc(currentUser.uid);
+        await teacherDocRef.delete().catch(() => {});
+
+        // Delete auth user (requires recent login/reauth)
+        await currentUser.delete();
+        console.log('✓ Account deleted for user:', currentUser.uid);
+
+        stopAutoSync();
+        localStorage.removeItem('firebaseUID');
+
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error deleting account:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// Expose helpers for UI/debug
+window.cloudCleanup = {
+    deleteMyCloudLessons,
+    deleteMyAccount
+};

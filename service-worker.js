@@ -4,17 +4,19 @@
  * IMPORTANT: Firebase and external APIs are NOT cached (always fresh)
  */
 
-const CACHE_NAME = 'teaching-progress-v19';
+const CACHE_NAME = 'teaching-progress-v20';
+// Use relative paths to support subpath hosting (e.g., GitHub Pages)
 const URLS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/css/style.css',
-    '/js/app.js',
-    '/js/ui.js',
-    '/js/db.js',
-    '/js/security.js',
-    '/js/firebase-config.js',
-    '/manifest.json'
+    './',
+    './index.html',
+    './css/style.css',
+    './js/app.js',
+    './js/ui.js',
+    './js/db.js',
+    './js/security.js',
+    './js/firebase-config.js',
+    './assets/images/logo.png',
+    './manifest.json'
 ];
 
 // Install event - cache assets

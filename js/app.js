@@ -90,7 +90,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             firebaseUser = auth.currentUser;
         }
         
-        if ((hasValidSession || firebaseUser) && profile && profile.teacherName) {
+        // Admin mode: if session role is admin, open Admin Panel and skip normal content
+        const sessionData = typeof getSessionData === 'function' ? getSessionData() : null;
+        if (sessionData && sessionData.role === 'admin') {
+            console.log('🔓 Admin session detected. Opening Admin Panel.');
+            document.getElementById('authLanding').style.display = 'none';
+            if (typeof openAdminPanel === 'function') openAdminPanel();
+        } else if ((hasValidSession || firebaseUser) && profile && profile.teacherName) {
             // Valid session exists (local or Firebase) - show content
             console.log('✓ Valid session found. Loading app...');
             document.getElementById('authLanding').style.display = 'none';
