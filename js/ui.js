@@ -1268,62 +1268,76 @@ function closeForgotPasswordModal() {
 }
 
 // Forgot Password button
-forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+if (forgotPasswordBtn) {
+    forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+} else {
+    console.warn('⚠️ forgotPasswordBtn not found - forgot password disabled');
+}
 
 // Close forgot password modal
-closeForgotPasswordBtn.addEventListener('click', closeForgotPasswordModal);
-resetBackBtn.addEventListener('click', closeForgotPasswordModal);
+if (closeForgotPasswordBtn) {
+    closeForgotPasswordBtn.addEventListener('click', closeForgotPasswordModal);
+}
+if (resetBackBtn) {
+    resetBackBtn.addEventListener('click', closeForgotPasswordModal);
+}
 
 // Verification step
-resetVerifyBtn.addEventListener('click', () => {
-    const teacherName = resetTeacherName.value.trim();
-    const method = resetVerificationMethod.value;
-    const value = resetVerificationValue.value.trim();
-    
-    if (!teacherName || !method || !value) {
-        alert('❌ All fields are required!');
-        return;
-    }
-    
-    // Verify identity
-    const verification = verifyIdentity(teacherName, method, value);
-    if (!verification.success) {
-        alert('❌ ' + verification.error);
-        return;
-    }
-    
-    // Move to password reset step
-    resetVerificationStep.style.display = 'none';
-    resetPasswordStep.style.display = 'block';
-    resetNewPassword.focus();
-});
+if (resetVerifyBtn) {
+    resetVerifyBtn.addEventListener('click', () => {
+        const teacherName = resetTeacherName.value.trim();
+        const method = resetVerificationMethod.value;
+        const value = resetVerificationValue.value.trim();
+        
+        if (!teacherName || !method || !value) {
+            alert('❌ All fields are required!');
+            return;
+        }
+        
+        // Verify identity
+        const verification = verifyIdentity(teacherName, method, value);
+        if (!verification.success) {
+            alert('❌ ' + verification.error);
+            return;
+        }
+        
+        // Move to password reset step
+        resetVerificationStep.style.display = 'none';
+        resetPasswordStep.style.display = 'block';
+        resetNewPassword.focus();
+    });
+}
 
 // Back to verification
-resetBackToVerifyBtn.addEventListener('click', () => {
-    resetVerificationStep.style.display = 'block';
-    resetPasswordStep.style.display = 'none';
-    resetNewPassword.value = '';
-    resetConfirmPassword.value = '';
-});
+if (resetBackToVerifyBtn) {
+    resetBackToVerifyBtn.addEventListener('click', () => {
+        resetVerificationStep.style.display = 'block';
+        resetPasswordStep.style.display = 'none';
+        resetNewPassword.value = '';
+        resetConfirmPassword.value = '';
+    });
+}
 
 // Submit password reset
-resetSubmitBtn.addEventListener('click', () => {
-    const newPassword = resetNewPassword.value;
-    const confirmPassword = resetConfirmPassword.value;
-    
-    // Reset password
-    const result = resetPassword(newPassword, confirmPassword);
-    if (!result.success) {
-        alert('❌ ' + result.error);
-        return;
-    }
-    
-    // Success
-    alert('✅ Password reset successfully! Please login with your new password.');
-    closeForgotPasswordModal();
-    loginModal.style.display = 'flex';
-    loginTeacherNameInput.focus();
-});
+if (resetSubmitBtn) {
+    resetSubmitBtn.addEventListener('click', () => {
+        const newPassword = resetNewPassword.value;
+        const confirmPassword = resetConfirmPassword.value;
+        
+        // Reset password
+        const result = resetPassword(newPassword, confirmPassword);
+        if (!result.success) {
+            alert('❌ ' + result.error);
+            return;
+        }
+        
+        // Success
+        alert('✅ Password reset successfully! Please login with your new password.');
+        closeForgotPasswordModal();
+        loginModal.style.display = 'flex';
+        loginTeacherNameInput.focus();
+    });
+}
 
 // Create Profile Form
 profileForm.addEventListener('submit', (e) => {

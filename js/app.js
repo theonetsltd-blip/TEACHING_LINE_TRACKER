@@ -3,11 +3,48 @@
  * Orchestrates initialization and form handling
  */
 
+// Diagnostic function to check module status
+function checkModules() {
+    const modules = {
+        'firebase': typeof firebase !== 'undefined',
+        'firebase-config': typeof getCurrentUser === 'function',
+        'security': typeof secureLogin === 'function',
+        'db': typeof initDB === 'function',
+        'ui': typeof getProfile === 'function'
+    };
+    
+    console.log('🔍 Module Status:');
+    Object.entries(modules).forEach(([name, loaded]) => {
+        console.log(`   ${loaded ? '✓' : '❌'} ${name}`);
+    });
+    
+    return modules;
+}
+
+// Make diagnostic available globally
+window.debugApp = checkModules;
+
+console.log('📚 Teaching Progress Tracker PWA');
+console.log('Offline-first app for tracking vocational training progress');
+console.log('Debug functions available: window.debugApp');
+
 // Initialize app on page load
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 App initializing...');
     
     try {
+        // Check modules first
+        const modules = checkModules();
+        if (!modules['db']) {
+            throw new Error('db.js module failed to load - check console for errors');
+        }
+        if (!modules['ui']) {
+            throw new Error('ui.js module failed to load - check console for errors');
+        }
+        if (!modules['security']) {
+            throw new Error('security.js module failed to load - check console for errors');
+        }
+        
         // Check if we're in standalone mode (PWA)
         const isStandalone = window.navigator.standalone === true || 
                             window.matchMedia('(display-mode: standalone)').matches;
@@ -70,11 +107,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Initialize database
         console.log('💾 Initializing IndexedDB...');
+        if (typeof initDB !== 'function') {
+            throw new Error('initDB function not found - db.js not loaded');
+        }
         await initDB();
         console.log('✓ Database initialized');
         
         // Check if database is empty and seed if needed
+        if (typeof isDatabaseEmpty !== 'function') {
+            throw new Error('isDatabaseEmpty function not found - db.js not loaded');
+        }
         const isEmpty = await isDatabaseEmpty();
+        
+        if (typeof getAllLessons !== 'function') {
+            throw new Error('getAllLessons function not found - db.js not loaded');
+        }
         const allLessons = await getAllLessons();
         console.log(`📊 Database status: ${allLessons.length} topics found`);
         
@@ -85,10 +132,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Clear old data first if it exists
             if (allLessons.length > 0 && allLessons.length < 50) {
                 console.log('🗑️  Clearing old curriculum data...');
+                if (typeof clearAllLessons !== 'function') {
+                    throw new Error('clearAllLessons function not found - db.js not loaded');
+                }
                 await clearAllLessons();
             }
             
             console.log('📚 Seeding 55-topic curriculum...');
+            if (typeof seedInitialLessons !== 'function') {
+                throw new Error('seedInitialLessons function not found - db.js not loaded');
+            }
             await seedInitialLessons();
             console.log('✓ Seed complete!');
         } else if (allLessons.length > 60) {
@@ -106,6 +159,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (duplicates.length > 0) {
                 console.log(`🔍 Found ${duplicates.length} duplicates, removing...`);
+                if (typeof deleteLessonFromDB !== 'function') {
+                    throw new Error('deleteLessonFromDB function not found - db.js not loaded');
+                }
                 for (const id of duplicates) {
                     await deleteLessonFromDB(id);
                 }
@@ -117,14 +173,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Render all columns
         console.log('🎨 Rendering Kanban board...');
-        await renderAllColumns();
+        try {
+            if (typeof renderAllColumns !== 'function') {
+                throw new Error('renderAllColumns function not found in ui.js');
+            }
+            await renderAllColumns();
+        } catch (renderError) {
+            console.error('❌ Render error:', renderError);
+            console.warn('⚠️ Continuing despite render error...');
+        }
         
         console.log('✅ App initialized successfully');
     } catch (error) {
-        console.error('❌ App initialization error:', error);
+        console.error('❌ App initialization error:', error.message);
+        console.error('Error type:', error.name);
         console.error('Stack trace:', error.stack);
-        alert('Error initializing app. Please refresh the page or open reset-db.html');
-
+        
+        // Try to identify which step failed
+        if (error.message.includes('initDB')) {
+            console.error('FAILED AT: Database initialization (db.js)');
+            alert('Error: Database failed to initialize. Try opening reset-db.html');
+        } else if (error.message.includes('isDatabaseEmpty')) {
+            console.error('FAILED AT: Database check (db.js)');
+            alert('Error: Database check failed. Try opening reset-db.html');
+        } else if (error.message.includes('seedInitialLessons')) {
+            console.error('FAILED AT: Seeding initial lessons (db.js)');
+            alert('Error: Failed to seed lessons. Try opening reset-db.html');
+        } else if (error.message.includes('renderAllColumns')) {
+            console.error('FAILED AT: Rendering kanban board (ui.js)');
+            alert('Error: Failed to render app. Please refresh the page');
+        } else {
+            console.error('FAILED AT: Unknown step');
+            alert('Error initializing app: ' + error.message + '\n\nPlease refresh the page or open reset-db.html');
+        }
     }
 });
 

@@ -36,7 +36,7 @@
       "name": "Add New Topic",
       "short_name": "Add Topic",
       "description": "Quickly add a new teaching topic",
-      "url": "/?action=add",
+      "url": "./index.html?action=add",
       "icons": [
         {
           "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%233498db' width='192' height='192'/><text x='50%' y='50%' font-size='120' fill='white' text-anchor='middle' dominant-baseline='middle' font-weight='bold'>➕</text></svg>",
@@ -49,7 +49,7 @@
       "name": "Export Progress",
       "short_name": "Export",
       "description": "Export your teaching progress report",
-      "url": "/?action=export",
+      "url": "./index.html?action=export",
       "icons": [
         {
           "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%2327ae60' width='192' height='192'/><text x='50%' y='50%' font-size='120' fill='white' text-anchor='middle' dominant-baseline='middle' font-weight='bold'>📥</text></svg>",
@@ -58,15 +58,5 @@
         }
       ]
     }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  }
+  ]
 }

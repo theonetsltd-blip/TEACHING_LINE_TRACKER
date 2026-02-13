@@ -96,7 +96,13 @@ async function logoutTeacher() {
 
 // Get current user
 function getCurrentUser() {
-    return currentUser;
+    // Safety check - return null if not initialized
+    try {
+        return currentUser || null;
+    } catch (error) {
+        console.warn('⚠️ getCurrentUser called before Firebase initialized');
+        return null;
+    }
 }
 
 // ========================
