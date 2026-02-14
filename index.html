@@ -32,7 +32,7 @@
     </style>
 
     <!-- Internet Connection Status -->
-    <div id="connectionStatus" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 20px; font-size: 11px; z-index: 9999; background: #4CAF50; color: white; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+    <div id="connectionStatus" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font-size: 11px; z-index: 9999; display: flex; align-items: center; gap: 5px; color: #4CAF50;">
         <span id="connectionIndicator">●</span>
         <span id="connectionText">Online</span>
     </div>
@@ -58,8 +58,9 @@
                 <h1> Teaching Progress Tracker</h1>
             </div>
             <div class="header-actions">
+                <button id="subjectSwitchHeaderBtn" class="btn btn-secondary" title="Change Subject">🔁 Change Subject</button>
+                <button id="addSubjectHeaderBtn" class="btn btn-secondary" title="Add Subject">➕ Add Subject</button>
                 <button id="viewTopicsBtn" class="btn btn-secondary" title="View Topics">📖 View Topics</button>
-                <button id="loadTopicsBtn" class="btn btn-secondary" title="Load Topics">📚 Load Topics</button>
                 <button id="exportBtn" class="btn btn-secondary" title="Export progress">📥 Export</button>
                 <button id="settingsBtn" class="btn btn-secondary" title="Settings">⚙️ Settings</button>
                 <button id="adminDashboardBtn" class="btn btn-secondary" title="Admin Dashboard" style="display:none;">🛡️ Admin Dashboard</button>
@@ -268,7 +269,7 @@
                 <div class="form-group" style="position: relative;">
                     <label for="loginPassword">Password *</label>
                     <input type="password" id="loginPassword" name="password" required placeholder="Enter your password">
-                    <button type="button" id="toggleLoginPassword" aria-label="Show/Hide password" title="Show/Hide password" style="position: absolute; right: 10px; top: 36px; background: none; border: none; cursor: pointer; font-size: 1rem;">👁️</button>
+                    <button type="button" id="toggleLoginPassword" aria-label="Show/Hide password" title="Show/Hide password" style="position: absolute; right: 10px; top: 32px; background: none; border: none; cursor: pointer; font-size: 1.6rem; line-height: 1;">👁️</button>
                 </div>
 
                 <div class="form-actions">

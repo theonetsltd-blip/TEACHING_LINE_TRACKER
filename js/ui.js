@@ -114,6 +114,7 @@ const exportBtn = document.getElementById('exportBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const adminBadge = document.getElementById('adminBadge');
 const adminDashboardBtn = document.getElementById('adminDashboardBtn');
+const subjectSwitchHeaderBtn = document.getElementById('subjectSwitchHeaderBtn');
 
 // Danger Zone elements
 const dangerDeleteCloudBtn = document.getElementById('dangerDeleteCloudBtn');
@@ -181,6 +182,9 @@ const vocationalSubjects = [
     'Agriculture',
     'Tailoring & Dressmaking'
 ];
+
+// Global levels list (select level first)
+const levelsList = ['Level One', 'Level Two'];
 
 // Global state for editing
 let currentEditingLessonId = null;
@@ -296,17 +300,21 @@ function updateConnectionStatus() {
     isOnline = navigator.onLine;
     
     if (isOnline) {
-        connectionStatus.style.background = '#4CAF50';
+        connectionStatus.style.background = 'transparent';
+        connectionStatus.style.boxShadow = 'none';
+        connectionStatus.style.color = '#27ae60';
         connectionIndicator.textContent = '●';
-        connectionIndicator.style.color = '#4CAF50';
+        connectionIndicator.style.color = '#27ae60';
         connectionText.textContent = 'Online';
         
         // Auto-sync when connection restored
         syncPendingData();
     } else {
-        connectionStatus.style.background = '#f44336';
+        connectionStatus.style.background = 'transparent';
+        connectionStatus.style.boxShadow = 'none';
+        connectionStatus.style.color = '#e74c3c';
         connectionIndicator.textContent = '●';
-        connectionIndicator.style.color = '#f44336';
+        connectionIndicator.style.color = '#e74c3c';
         connectionText.textContent = 'Offline';
     }
 }
@@ -397,31 +405,94 @@ async function renderTopicsList(searchTerm = '') {
     try {
         const lessons = await getAllLessons();
         let filteredLessons = lessons;
-        
+        // Filter by active subject
+        try {
+            const profile = getProfile?.();
+            const subjectFilter = profile?.activeSubjectName || profile?.subjectName || profile?.subject || '';
+            if (subjectFilter) {
+                filteredLessons = filteredLessons.filter(l => (l.subjectName || '') === subjectFilter);
+            }
+        } catch (_) { /* ignore */ }
+        // Search term filter
         if (searchTerm) {
-            filteredLessons = lessons.filter(lesson => 
-                lesson.topic.toLowerCase().includes(searchTerm.toLowerCase())
+            filteredLessons = filteredLessons.filter(lesson => 
+                (lesson.topic || '').toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
         
-        if (filteredLessons.length === 0) {
-            topicsListContainer.innerHTML = '<p style="text-align: center; padding: var(--spacing-lg); color: var(--text-secondary);">No topics found</p>';
-            return;
-        }
-        
         let html = '<div style="display: grid; grid-template-columns: 1fr; gap: var(--spacing-sm);">';
-        
-        filteredLessons.forEach((lesson, index) => {
-            html += `
-                <div style="padding: var(--spacing-md); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: var(--spacing-md);">
-                    <span style="color: var(--text-secondary); min-width: 30px;">${index + 1}.</span>
-                    <span style="color: var(--text-primary);">${lesson.topic}</span>
-                </div>
-            `;
-        });
-        
+        if (filteredLessons.length === 0) {
+            html += '<p style="text-align: center; padding: var(--spacing-lg); color: var(--text-secondary);">No topics found</p>';
+        } else {
+            filteredLessons.forEach((lesson, index) => {
+                html += `
+                    <div class="topic-row" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: var(--spacing-md); justify-content: space-between;">
+                        <div style="display:flex; align-items:center; gap: var(--spacing-md);">
+                            <span style="color: var(--text-secondary); min-width: 30px;">${index + 1}.</span>
+                            <span style="color: var(--text-primary);">${lesson.topic}</span>
+                        </div>
+                        <div>
+                            <button class="topic-delete-btn" data-id="${lesson.id}" data-name="${lesson.topic}" style="padding:4px 8px; font-size:12px; background:#ff6b6b; color:#fff; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        // Add Topic input at end
+        html += `
+            <div style="margin-top: var(--spacing-lg); display:flex; gap: var(--spacing-sm);">
+                <input id="addTopicInput" type="text" placeholder="Add a topic for active subject" style="flex:1; padding: var(--spacing-sm); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+                <button id="addTopicSubmit" class="btn btn-primary">+ Add</button>
+            </div>
+        `;
         html += '</div>';
         topicsListContainer.innerHTML = html;
+        // Bind delete buttons
+        topicsListContainer.querySelectorAll('.topic-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                const name = btn.dataset.name || '';
+                openDeleteModal(id, name);
+            });
+        });
+        // Bind add topic
+        const addBtn = document.getElementById('addTopicSubmit');
+        const addInput = document.getElementById('addTopicInput');
+        addBtn?.addEventListener('click', async () => {
+            const topicName = (addInput?.value || '').trim();
+            if (!topicName) return;
+            let subjectName = '';
+            try {
+                const profile = getProfile?.();
+                subjectName = profile?.activeSubjectName || profile?.subjectName || profile?.subject || '';
+            } catch (_) {}
+            if (!subjectName) {
+                alert('Please select an active subject first.');
+                return;
+            }
+            const lesson = {
+                topic: topicName,
+                week: null,
+                status: 'not-started',
+                periodsPlanned: 2,
+                periodsUsed: 0,
+                lastTaught: '',
+                nextStart: '',
+                remarks: '',
+                subjectName
+            };
+            try {
+                showSyncIndicator?.('🔄 Adding topic...');
+                await saveLessonToDB(lesson);
+                addInput.value = '';
+                await renderAllColumns();
+                await renderTopicsList();
+                showSyncIndicator?.('✅ Topic added');
+            } catch (err) {
+                console.error('Add topic error:', err);
+                showSyncIndicator?.('❌ Add failed');
+            }
+        });
     } catch (error) {
         console.error('Error rendering topics list:', error);
         topicsListContainer.innerHTML = '<p style="color: red;">Error loading topics</p>';
@@ -480,6 +551,28 @@ function openSettingsModal() {
     const role = getSessionRole();
     const isAdmin = role === 'admin';
     if (dangerZone) dangerZone.style.display = isAdmin ? 'block' : 'none';
+
+    // Inject a Subject Switcher button if not present
+    try {
+        const injectId = 'switchSubjectBtn';
+        if (!document.getElementById(injectId)) {
+            const btn = document.createElement('button');
+            btn.id = injectId;
+            btn.textContent = 'Switch Subject';
+            btn.style.cssText = `
+                margin-top: var(--spacing-md);
+                width: 100%;
+                padding: 12px;
+                background: #2c3e50;
+                color: #fff;
+                border: none;
+                border-radius: var(--border-radius);
+                cursor: pointer;
+            `;
+            btn.addEventListener('click', openSubjectSwitcherOverlay);
+            settingsModal.appendChild(btn);
+        }
+    } catch (_) { /* ignore */ }
 }
 
 function closeSettingsModal() {
@@ -490,7 +583,7 @@ function openProfileSettingsModal() {
     const profile = getProfile();
     if (profile) {
         displayTeacherName.textContent = profile.teacherName || '-';
-        displaySubject.textContent = profile.subjectName || '-';
+        displaySubject.textContent = (profile.activeSubjectName || profile.subjectName) || '-';
         displayPhone.textContent = profile.phone || '-';
     }
     profileSettingsModal.style.display = 'flex';
@@ -513,16 +606,428 @@ function showAuthLanding() {
     authLanding.style.display = 'flex';
     loginModal.style.display = 'none';
     createProfileModal.style.display = 'none';
+    // Apply overlay and body-level blur while choosing auth action
+    try { authLanding.classList.add('blur-bg'); } catch (_) {}
+    document.body.classList.add('blur-active');
 }
 
 function showLoginModal() {
     authLanding.style.display = 'none';
+    loginModal.classList.add('blur-bg');
+    document.body.classList.add('blur-active');
     loginModal.style.display = 'flex';
     loginTeacherNameInput.focus();
 }
 
+// Subject switcher overlay as a multi-step wizard
+function openSubjectSwitcherOverlay() {
+    const prof = getProfile();
+    let selectedLevel = prof?.activeLevelName || '';
+    let selectedSubject = '';
+    let isManualSubject = false;
+    let topicsList = [];
+    let currentStep = 1; // 1: Level, 2: Subject, 3: Topics
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    const panel = document.createElement('div');
+    panel.style.cssText = 'background: #fff; border-radius: 8px; padding: 20px; width: 560px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.2);';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Subject Setup Wizard';
+    title.style.marginTop = '0';
+    panel.appendChild(title);
+
+    // Step containers
+    const step1 = document.createElement('div');
+    const step2 = document.createElement('div');
+    const step3 = document.createElement('div');
+
+    // Step 1: Level selection
+    const levelLabel = document.createElement('p');
+    levelLabel.textContent = 'Step 1: Select Level';
+    levelLabel.style.cssText = 'color:#666; margin:8px 0;';
+    step1.appendChild(levelLabel);
+    const levelWrap = document.createElement('div');
+    levelWrap.style.cssText = 'display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-bottom:12px;';
+    levelsList.forEach(lvl => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = lvl;
+        btn.style.cssText = 'padding:10px; border:2px solid #ddd; background:#f9f9f9; border-radius:6px; cursor:pointer;';
+        if (lvl === selectedLevel) { btn.style.borderColor = '#3498db'; btn.style.background = '#e3f2fd'; }
+        btn.addEventListener('click', () => {
+            selectedLevel = lvl;
+            levelWrap.querySelectorAll('button').forEach(b => { b.style.borderColor = '#ddd'; b.style.background = '#f9f9f9'; });
+            btn.style.borderColor = '#3498db'; btn.style.background = '#e3f2fd';
+            updateNavButtons();
+        });
+        levelWrap.appendChild(btn);
+    });
+    step1.appendChild(levelWrap);
+
+    // Step 2: Subject selection (grid + manual at bottom)
+    const subjLabel = document.createElement('p');
+    subjLabel.textContent = 'Step 2: Select Subject';
+    subjLabel.style.cssText = 'color:#666; margin:8px 0;';
+    step2.appendChild(subjLabel);
+    const subjGrid = document.createElement('div');
+    subjGrid.style.cssText = 'display:grid; grid-template-columns: repeat(2, 1fr); gap:8px;';
+    vocationalSubjects.forEach(name => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = name;
+        btn.style.cssText = 'padding:10px; border:2px solid #ddd; background:#fff; border-radius:6px; cursor:pointer; text-align:left;';
+        btn.addEventListener('click', () => {
+            selectedSubject = name;
+            isManualSubject = false;
+            subjGrid.querySelectorAll('button').forEach(b => { b.style.borderColor = '#ddd'; b.style.background = '#fff'; b.style.color = '#000'; });
+            btn.style.borderColor = '#2c3e50'; btn.style.background = '#2c3e50'; btn.style.color = '#fff';
+            updateNavButtons();
+        });
+        subjGrid.appendChild(btn);
+    });
+    step2.appendChild(subjGrid);
+    const manualWrap = document.createElement('div');
+    manualWrap.style.cssText = 'display:flex; gap:8px; margin-top:12px;';
+    const manualInput = document.createElement('input');
+    manualInput.type = 'text';
+    manualInput.placeholder = 'Or enter a new subject...';
+    manualInput.style.cssText = 'flex:1; padding:10px; border:1px solid #ddd; border-radius:6px;';
+    const manualBtn = document.createElement('button');
+    manualBtn.textContent = 'Add Subject';
+    manualBtn.style.cssText = 'padding:10px 12px; background:#27ae60; color:#fff; border:none; border-radius:6px; cursor:pointer;';
+    manualBtn.addEventListener('click', () => {
+        const name = manualInput.value.trim();
+        if (!name) { alert('Enter a subject name.'); return; }
+        selectedSubject = name;
+        isManualSubject = true;
+        subjGrid.querySelectorAll('button').forEach(b => { b.style.borderColor = '#ddd'; b.style.background = '#fff'; b.style.color = '#000'; });
+        updateNavButtons();
+    });
+    manualWrap.appendChild(manualInput);
+    manualWrap.appendChild(manualBtn);
+    step2.appendChild(manualWrap);
+
+    // Step 3: Topics preview/add
+    const topicsLabel = document.createElement('p');
+    topicsLabel.textContent = 'Step 3: Review/Add Topics';
+    topicsLabel.style.cssText = 'color:#666; margin:12px 0 8px 0;';
+    step3.appendChild(topicsLabel);
+    const topicsContainer = document.createElement('div');
+    topicsContainer.style.cssText = 'border:1px solid #ddd; border-radius:6px; padding:10px; max-height:220px; overflow:auto; background:#f9f9f9;';
+    step3.appendChild(topicsContainer);
+    const addTopicRow = document.createElement('div');
+    addTopicRow.style.cssText = 'display:flex; gap:8px; margin-top:10px;';
+    const newTopicInput = document.createElement('input');
+    newTopicInput.type = 'text';
+    newTopicInput.placeholder = 'Add a topic...';
+    newTopicInput.style.cssText = 'flex:1; padding:10px; border:1px solid #ddd; border-radius:6px;';
+    const addTopicBtn = document.createElement('button');
+    addTopicBtn.textContent = '+ Add';
+    addTopicBtn.style.cssText = 'padding:10px 12px; background:#3498db; color:#fff; border:none; border-radius:6px; cursor:pointer;';
+    addTopicBtn.addEventListener('click', () => {
+        const t = newTopicInput.value.trim();
+        if (!t) return;
+        topicsList.push(t);
+        newTopicInput.value = '';
+        renderTopicsList();
+        updateNavButtons();
+    });
+    addTopicRow.appendChild(newTopicInput);
+    addTopicRow.appendChild(addTopicBtn);
+    step3.appendChild(addTopicRow);
+
+    panel.appendChild(step1);
+    panel.appendChild(step2);
+    panel.appendChild(step3);
+
+    // Navigation controls
+    const nav = document.createElement('div');
+    nav.style.cssText = 'display:flex; gap:8px; margin-top:12px;';
+    const backBtn = document.createElement('button');
+    backBtn.textContent = 'Back';
+    backBtn.className = 'btn btn-secondary';
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Next';
+    nextBtn.className = 'btn btn-primary';
+    nextBtn.style.cssText = 'margin-left:auto;';
+    const activateBtn = document.createElement('button');
+    activateBtn.textContent = 'Activate';
+    activateBtn.className = 'btn btn-primary';
+    activateBtn.style.cssText = 'display:none;';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.style.cssText = '';
+    nav.appendChild(cancelBtn);
+    nav.appendChild(backBtn);
+    nav.appendChild(nextBtn);
+    nav.appendChild(activateBtn);
+    panel.appendChild(nav);
+
+    function goToStep(step) {
+        currentStep = step;
+        step1.style.display = step === 1 ? 'block' : 'none';
+        step2.style.display = step === 2 ? 'block' : 'none';
+        step3.style.display = step === 3 ? 'block' : 'none';
+        nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
+        activateBtn.style.display = step === 3 ? 'inline-block' : 'none';
+        backBtn.style.display = step > 1 ? 'inline-block' : 'none';
+        updateNavButtons();
+        if (step === 3) {
+            renderTopicsPreview();
+        }
+    }
+
+    function updateNavButtons() {
+        if (currentStep === 1) {
+            nextBtn.disabled = !selectedLevel;
+        } else if (currentStep === 2) {
+            nextBtn.disabled = !selectedSubject;
+        } else {
+            // Step 3: If manual subject or no defaults, require topics
+            const defaults = (typeof getDefaultLessonsForSubject === 'function' && selectedSubject) ? getDefaultLessonsForSubject(selectedSubject) : [];
+            const hasDefaults = Array.isArray(defaults) && defaults.length > 0;
+            const requireTopics = isManualSubject || !hasDefaults;
+            activateBtn.disabled = requireTopics ? topicsList.length === 0 : false;
+        }
+    }
+
+    backBtn.addEventListener('click', () => {
+        if (currentStep > 1) goToStep(currentStep - 1);
+    });
+    nextBtn.addEventListener('click', () => {
+        if (currentStep === 1) {
+            if (!selectedLevel) { alert('Please select a level.'); return; }
+            goToStep(2);
+        } else if (currentStep === 2) {
+            if (!selectedSubject) { alert('Please select or add a subject.'); return; }
+            goToStep(3);
+        }
+    });
+    cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+
+    activateBtn.addEventListener('click', async () => {
+        if (!selectedLevel) { alert('Please select a level.'); return; }
+        if (!selectedSubject) { alert('Please select or add a subject.'); return; }
+        const defaults = (typeof getDefaultLessonsForSubject === 'function') ? getDefaultLessonsForSubject(selectedSubject) : [];
+        const hasDefaults = Array.isArray(defaults) && defaults.length > 0;
+        if (!hasDefaults && topicsList.length === 0) {
+            alert('No default topics found. Please add topics before activating.');
+            return;
+        }
+        showGlobalLoader?.('Activating subject...', 'Applying selection and loading topics');
+        const id = selectedSubject.toLowerCase().replace(/\s+/g, '-');
+        const prof2 = getProfile();
+        prof2.subjects = Array.isArray(prof2.subjects) ? prof2.subjects : [];
+        const existingEntry = prof2.subjects.find(s => s.name === selectedSubject);
+        const isNewSubject = !existingEntry;
+        if (isNewSubject) {
+            prof2.subjects.push({ id, name: selectedSubject, level: selectedLevel });
+        } else {
+            prof2.subjects = prof2.subjects.map(s => s.name === selectedSubject ? { ...s, level: selectedLevel } : s);
+        }
+        prof2.activeSubjectName = selectedSubject;
+        prof2.activeLevelName = selectedLevel;
+        saveProfile(prof2);
+        if (hasDefaults && isNewSubject) {
+            await seedInitialLessons(selectedSubject);
+        }
+        if (topicsList.length > 0) {
+            await createLessonsForSubjectFromNames(selectedSubject, topicsList);
+        }
+        await renderAllColumns();
+        hideGlobalLoader?.();
+        document.body.removeChild(overlay);
+    });
+
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+
+    function renderTopicsPreview() {
+        topicsList = [];
+        try {
+            const defaults = (typeof getDefaultLessonsForSubject === 'function' && selectedSubject) ? getDefaultLessonsForSubject(selectedSubject) : [];
+            if (defaults && defaults.length > 0 && !isManualSubject) {
+                topicsList = defaults.map(d => d.topic).filter(Boolean);
+            }
+        } catch (_) {}
+        renderTopicsList();
+    }
+
+    function renderTopicsList() {
+        topicsContainer.innerHTML = '';
+        if (!selectedSubject) {
+            topicsContainer.innerHTML = '<p style="color:#888;">Select a subject to view topics.</p>';
+            return;
+        }
+        if (topicsList.length === 0) {
+            topicsContainer.innerHTML = '<p style="color:#888;">No topics listed. Add topics above.</p>';
+            return;
+        }
+        const fragment = document.createDocumentFragment();
+        topicsList.forEach((t, idx) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:#fff; border:1px solid #eee; border-radius:6px; margin-bottom:6px;';
+            const span = document.createElement('span');
+            span.textContent = `${idx + 1}. ${t}`;
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.style.cssText = 'padding:4px 8px; font-size:12px; background:#ff6b6b; color:#fff; border:none; border-radius:4px; cursor:pointer;';
+            removeBtn.addEventListener('click', () => {
+                topicsList.splice(idx, 1);
+                renderTopicsList();
+                updateNavButtons();
+            });
+            row.appendChild(span);
+            row.appendChild(removeBtn);
+            fragment.appendChild(row);
+        });
+        topicsContainer.appendChild(fragment);
+    }
+
+    // Initialize wizard
+    goToStep(1);
+}
+
+function setActiveSubject(name) {
+    const prof = getProfile();
+    if (!prof) return;
+    prof.activeSubjectName = name || '';
+    // Also set active level from stored subject entry if available
+    if (Array.isArray(prof.subjects)) {
+        const found = prof.subjects.find(s => s.name === name);
+        if (found && found.level) {
+            prof.activeLevelName = found.level;
+        }
+    }
+    saveProfile(prof);
+    updateHeaderWithTeacherInfo();
+    renderAllColumns?.();
+}
+
+// Simple modal to change active subject among existing subjects
+async function openChangeSubjectModal() {
+    const prof = getProfile();
+    let subjects = Array.isArray(prof?.subjects) ? prof.subjects.slice() : [];
+    // Include legacy subject fields if not present in the array
+    const legacyName = prof?.activeSubjectName || prof?.subjectName || prof?.subject || '';
+    if (legacyName && !subjects.find(s => s.name === legacyName)) {
+        const id = legacyName.toLowerCase().replace(/\s+/g, '-');
+        subjects.push({ id, name: legacyName, level: prof?.activeLevelName || prof?.classroom || '' });
+    }
+    // Include any subjects inferred from existing lessons
+    try {
+        const lessons = await (typeof getAllLessons === 'function' ? getAllLessons() : Promise.resolve([]));
+        const lessonSubjects = new Set();
+        lessons.forEach(l => { const n = (l.subjectName || '').trim(); if (n) lessonSubjects.add(n); });
+        lessonSubjects.forEach(n => {
+            if (!subjects.find(s => s.name === n)) {
+                const id = n.toLowerCase().replace(/\s+/g, '-');
+                // Try to pick level if exists in profile subjects
+                const match = (Array.isArray(prof?.subjects) ? prof.subjects : []).find(s => s.name === n);
+                subjects.push({ id, name: n, level: match?.level || '' });
+            }
+        });
+    } catch (_) { /* ignore */ }
+    if (subjects.length === 0) {
+        alert('No subjects added yet. Use Add Subject first.');
+        return;
+    }
+    const activeName = prof?.activeSubjectName || '';
+    const sorted = subjects.slice().sort((a, b) => {
+        if (a.name === activeName && b.name !== activeName) return -1;
+        if (b.name === activeName && a.name !== activeName) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    const panel = document.createElement('div');
+    panel.style.cssText = 'background: #fff; border-radius: 8px; padding: 20px; width: 480px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.2);';
+    const title = document.createElement('h3');
+    title.textContent = 'Change Active Subject';
+    title.style.marginTop = '0';
+    panel.appendChild(title);
+    const list = document.createElement('div');
+    list.style.cssText = 'display:grid; grid-template-columns: 1fr; gap:8px;';
+    // Dedupe by subject name before rendering
+    const seen = new Set();
+    sorted.forEach(s => {
+        if (seen.has(s.name)) return; seen.add(s.name);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = `${s.name} • ${s.level || '—'}`;
+        const isActive = s.name === activeName;
+        btn.style.cssText = 'padding:10px; border:2px solid #ddd; background:#fff; border-radius:6px; cursor:pointer; text-align:left; display:flex; align-items:center; justify-content:space-between;';
+        if (isActive) {
+            btn.style.borderColor = '#27ae60';
+            btn.style.background = '#e9f7ef';
+        }
+        if (isActive) {
+            const badge = document.createElement('span');
+            badge.textContent = 'Active';
+            badge.style.cssText = 'margin-left:8px; padding:2px 6px; font-size:12px; color:#fff; background:#27ae60; border-radius:10px;';
+            btn.appendChild(badge);
+        }
+        btn.addEventListener('click', () => {
+            setActiveSubject(s.name);
+            document.body.removeChild(overlay);
+        });
+        list.appendChild(btn);
+    });
+    panel.appendChild(list);
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex; gap:8px; margin-top:12px;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.className = 'btn btn-secondary';
+    closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
+    actions.appendChild(closeBtn);
+    panel.appendChild(actions);
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+}
+
+function addSubject(name) {
+    const prof = getProfile();
+    if (!prof) return;
+    const id = (name || '').toLowerCase().replace(/\s+/g, '-');
+    prof.subjects = Array.isArray(prof.subjects) ? prof.subjects : [];
+    if (!prof.subjects.find(s => s.name === name)) {
+        prof.subjects.push({ id, name });
+    }
+    prof.activeSubjectName = name;
+    saveProfile(prof);
+}
+
+// Create lessons from a simple topic name list for a subject
+async function createLessonsForSubjectFromNames(subjectName, topicNames = []) {
+    const unique = [];
+    const seen = new Set();
+    topicNames.forEach(t => { const k = (t || '').trim().toLowerCase(); if (k && !seen.has(k)) { seen.add(k); unique.push(t.trim()); } });
+    for (const t of unique) {
+        const lesson = {
+            topic: t,
+            week: null,
+            status: 'not-started',
+            periodsPlanned: 2,
+            periodsUsed: 0,
+            lastTaught: '',
+            nextStart: '',
+            remarks: '',
+            subjectName: subjectName
+        };
+        try { await saveLessonToDB(lesson); } catch (_) {}
+    }
+}
+
 function showCreateProfileModal() {
     authLanding.style.display = 'none';
+    createProfileModal.classList.add('blur-bg');
+    document.body.classList.add('blur-active');
     createProfileModal.style.display = 'flex';
     teacherNameInput.focus();
 }
@@ -564,6 +1069,12 @@ backFromAdminBtn?.addEventListener('click', () => {
 adminDashboardBtn?.addEventListener('click', () => {
     openAdminDashboard();
 });
+
+// Header buttons: change vs add subject
+subjectSwitchHeaderBtn?.addEventListener('click', openChangeSubjectModal);
+const addSubjectHeaderBtn = document.getElementById('addSubjectHeaderBtn');
+addSubjectHeaderBtn?.addEventListener('click', openSubjectSwitcherOverlay);
+viewTopicsBtn?.addEventListener('click', openViewTopicsModal);
 
 backFromAdminDashboardBtn?.addEventListener('click', () => {
     closeAdminDashboard();
@@ -641,15 +1152,47 @@ function getProfile() {
     return profile ? JSON.parse(profile) : null;
 }
 
+// Ensure profile model is updated for multi-subject support at startup
+(function ensureProfileSubjectModelStartup(){
+    try {
+        const raw = localStorage.getItem('teacherProfile');
+        if (!raw) return;
+        const prof = JSON.parse(raw);
+        let changed = false;
+        if (!Array.isArray(prof.subjects)) {
+            const name = prof.subjectName || prof.subject || '';
+            const id = (name || '').toLowerCase().replace(/\s+/g, '-');
+            prof.subjects = name ? [{ id, name }] : [];
+            changed = true;
+        }
+        if (!prof.activeSubjectName && (prof.subjectName || prof.subject || (prof.subjects[0]?.name))) {
+            prof.activeSubjectName = prof.subjectName || prof.subject || prof.subjects[0]?.name || '';
+            changed = true;
+        }
+        if (changed) {
+            localStorage.setItem('teacherProfile', JSON.stringify(prof));
+        }
+    } catch (_) { /* ignore */ }
+})();
+
 function updateHeaderWithTeacherInfo() {
     const profile = getProfile();
     if (profile && (profile.teacherName || profile.email)) {
         const parts = [];
         if (profile.teacherName) parts.push(`👤 ${profile.teacherName}`);
-        if (profile.subjectName) parts.push(`📖 ${profile.subjectName}`);
+        const subj = profile.activeSubjectName || profile.subjectName;
+        if (subj) parts.push(`📖 ${subj}`);
+        if (profile.activeLevelName) parts.push(`⚙️ ${profile.activeLevelName}`);
         if (profile.schoolName) parts.push(`🏫 ${profile.schoolName}`);
         if (profile.classroom) parts.push(`🎓 ${profile.classroom}`);
         teacherInfo.textContent = parts.join(' • ');
+        // Ensure any previously injected quick switch button is removed
+        try {
+            const existing = document.getElementById('subjectQuickSwitch');
+            if (existing && existing.parentNode) {
+                existing.parentNode.removeChild(existing);
+            }
+        } catch (_) { /* ignore */ }
         teacherInfo.style.display = 'block';
     } else {
         teacherInfo.style.display = 'none';
@@ -660,7 +1203,7 @@ function populateProfileForm() {
     const profile = getProfile();
     if (profile) {
         teacherNameInput.value = profile.teacherName || '';
-        subjectNameInput.value = profile.subjectName || '';
+        subjectNameInput.value = profile.activeSubjectName || profile.subjectName || '';
         passwordInput.value = profile.password || '';
         confirmPasswordInput.value = profile.password || '';
         schoolNameInput.value = profile.schoolName || '';
@@ -756,6 +1299,12 @@ function getProgressColor(percentage) {
 
 async function renderAllColumns() {
     const allLessons = await getAllLessons();
+    // Filter by active subject (or single subject in profile)
+    let subjectFilter = '';
+    try {
+        const profile = getProfile?.();
+        subjectFilter = profile?.activeSubjectName || profile?.subjectName || profile?.subject || '';
+    } catch (_) { /* ignore */ }
     
     const statuses = ['not-started', 'in-progress', 'completed'];
     
@@ -764,7 +1313,11 @@ async function renderAllColumns() {
         const columnHeader = document.querySelector(`[data-status="${status}"] .column-header`);
         const countBadge = columnHeader.querySelector('.column-count');
         
-        const lessonsInStatus = allLessons.filter(l => l.status === status);
+        const lessonsInStatus = allLessons.filter(l => {
+            const matchesStatus = l.status === status;
+            const matchesSubject = !subjectFilter || (l.subjectName || '') === subjectFilter;
+            return matchesStatus && matchesSubject;
+        });
         
         columnElement.innerHTML = '';
         
@@ -1225,7 +1778,7 @@ closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
 closeSettingsBtn.addEventListener('click', closeSettingsModal);
 
 // Load Topics modal
-loadTopicsBtn.addEventListener('click', openLoadTopicsModal);
+loadTopicsBtn?.addEventListener('click', openLoadTopicsModal);
 closeLoadTopicsModalBtn.addEventListener('click', closeLoadTopicsModalFunc);
 closeLoadTopicsBtn.addEventListener('click', closeLoadTopicsModalFunc);
 
@@ -1625,6 +2178,7 @@ loginForm.addEventListener('submit', async (e) => {
             updateHeaderWithTeacherInfo();
             loginModal.style.display = 'none';
             authLanding.style.display = 'none';
+            document.body.classList.remove('blur-active');
             
             await renderAllColumns();
             alert('✅ Welcome back! Cloud sync enabled - your data is synchronized.');
@@ -1659,6 +2213,7 @@ loginForm.addEventListener('submit', async (e) => {
         updateHeaderWithTeacherInfo();
         loginModal.style.display = 'none';
         authLanding.style.display = 'none';
+        document.body.classList.remove('blur-active');
         alert('✅ Welcome back!');
         applyRoleUIState();
         loginForm.reset();
@@ -1678,6 +2233,8 @@ backFromLoginBtn.addEventListener('click', showAuthLanding);
 
 function openForgotPasswordModal() {
     loginModal.style.display = 'none';
+    forgotPasswordModal.classList.add('blur-bg');
+    document.body.classList.add('blur-active');
     forgotPasswordModal.style.display = 'flex';
     resetTeacherName.focus();
 }
@@ -1691,6 +2248,8 @@ function closeForgotPasswordModal() {
     resetVerificationValue.value = '';
     resetNewPassword.value = '';
     resetConfirmPassword.value = '';
+    // Return to login modal and keep blur active
+    try { showLoginModal(); } catch (_) {}
 }
 
 // Forgot Password button
@@ -1819,7 +2378,9 @@ submitSubjectBtn.addEventListener('click', async () => {
     // Complete the profile data with selected subject
     const profileData = {
         ...window.tempProfileData,
-        subjectName: selectedSubject
+        subjectName: selectedSubject,
+        activeSubjectName: selectedSubject,
+        subjects: [{ id: selectedSubject.toLowerCase().replace(/\s+/g, '-'), name: selectedSubject }]
     };
     
     try {
@@ -1886,6 +2447,8 @@ submitSubjectBtn.addEventListener('click', async () => {
         const mainContent = document.querySelector('.main-content');
         mainContent.classList.add('visible');
         closeSubjectSelectionModal();
+        // Remove blur as we enter the main app
+        document.body.classList.remove('blur-active');
         
         // Render the new empty/fresh columns
         await renderAllColumns();
@@ -2371,7 +2934,7 @@ document.querySelectorAll('.btn-add-card').forEach(btn => {
 exportBtn.addEventListener('click', openExportModal);
 
 // Load Topics button
-loadTopicsBtn.addEventListener('click', openLoadTopicsModal);
+loadTopicsBtn?.addEventListener('click', openLoadTopicsModal);
 
 // View Topics button
 viewTopicsBtn.addEventListener('click', openViewTopicsModal);

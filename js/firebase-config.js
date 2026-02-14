@@ -322,6 +322,19 @@ async function saveLessonToCloud(lesson) {
     }
     
     try {
+        // Ensure subjectName is present before syncing
+        try {
+            if (!lesson.subjectName) {
+                const profRaw = localStorage.getItem('teacherProfile');
+                if (profRaw) {
+                    const prof = JSON.parse(profRaw);
+                    lesson.subjectName = prof?.activeSubjectName || prof?.subjectName || prof?.subject || '';
+                } else {
+                    lesson.subjectName = '';
+                }
+            }
+        } catch (_) { /* no-op */ }
+
         const lessonRef = firestore.collection('teachers').doc(currentUser.uid).collection('lessons').doc(lesson.id?.toString() || 'temp');
         const lessonData = {
             ...lesson,

@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'TeachingProgressDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'lessons';
 
 let db = null;
@@ -17,12 +17,49 @@ async function initDB() {
         // Handle database upgrade
         request.onupgradeneeded = (event) => {
             db = event.target.result;
-            
+
+            const tx = event.target.transaction;
+            let store;
+
             // Create object store if it doesn't exist
             if (!db.objectStoreNames.contains(STORE_NAME)) {
-                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
                 store.createIndex('status', 'status', { unique: false });
                 store.createIndex('week', 'week', { unique: false });
+                // New: index for subject-based filtering
+                store.createIndex('subjectName', 'subjectName', { unique: false });
+            } else {
+                store = tx.objectStore(STORE_NAME);
+                // Ensure new index exists after upgrade
+                if (!store.indexNames.contains('subjectName')) {
+                    store.createIndex('subjectName', 'subjectName', { unique: false });
+                }
+                // Migration: add subjectName to existing records if missing
+                try {
+                    const profileRaw = localStorage.getItem('teacherProfile');
+                    let subjectName = '';
+                    if (profileRaw) {
+                        const prof = JSON.parse(profileRaw);
+                        subjectName = prof?.activeSubjectName || prof?.subjectName || prof?.subject || '';
+                    }
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = (e) => {
+                        const cursor = e.target.result;
+                        if (cursor) {
+                            const value = cursor.value || {};
+                            if (value.subjectName === undefined) {
+                                value.subjectName = subjectName || '';
+                                cursor.update(value);
+                            }
+                            cursor.continue();
+                        }
+                    };
+                    cursorRequest.onerror = () => {
+                        console.warn('Subject migration cursor error:', cursorRequest.error);
+                    };
+                } catch (mErr) {
+                    console.warn('Subject migration failed:', mErr);
+                }
             }
         };
 
@@ -67,6 +104,20 @@ async function saveLessonToDB(lesson) {
                 return reject(err);
             }
         }
+
+        // Ensure lesson carries subject context
+        try {
+            if (!lesson.subjectName) {
+                const profRaw = localStorage.getItem('teacherProfile');
+                if (profRaw) {
+                    const prof = JSON.parse(profRaw);
+                    lesson.subjectName = prof?.activeSubjectName || prof?.subjectName || prof?.subject || '';
+                } else {
+                    lesson.subjectName = '';
+                }
+            }
+        } catch (_) { /* no-op */ }
+
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
@@ -896,23 +947,27 @@ async function seedInitialLessons(subjectOverride) {
             const raw = localStorage.getItem('teacherProfile');
             if (raw) {
                 const prof = JSON.parse(raw);
-                subjectName = prof?.subjectName || prof?.subject || '';
+                subjectName = prof?.activeSubjectName || prof?.subjectName || prof?.subject || '';
             }
         } catch (_) { /* ignore */ }
     }
 
     const initialLessons = getDefaultLessonsForSubject(subjectName);
 
-    // Get existing lessons to check for duplicates
+    // Get existing lessons for the same subject to check for duplicates
     const existingLessons = await getAllLessons();
-    const existingTopics = new Set(existingLessons.map(l => l.topic.trim().toLowerCase()));
+    const existingTopics = new Set(
+        existingLessons
+            .filter(l => (l.subjectName || '') === (subjectName || ''))
+            .map(l => (l.topic || '').trim().toLowerCase())
+    );
 
     let addedCount = 0;
     const total = initialLessons.length;
     let processed = 0;
     for (const lesson of initialLessons) {
         // Check if topic already exists (case-insensitive, trimmed)
-        if (!existingTopics.has(lesson.topic.trim().toLowerCase())) {
+        if (!existingTopics.has((lesson.topic || '').trim().toLowerCase())) {
             await saveLessonToDB(lesson);
             addedCount++;
         } else {

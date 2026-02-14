@@ -91,11 +91,11 @@ p {
 .header-content {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    text-align: center;
-    flex: 1;
-    width: 100%;
+    text-align: left;
+    margin-left: var(--spacing-sm);
+    flex: 0 1 auto;
 }
 
 .header-content h1 {
@@ -532,6 +532,20 @@ p {
     align-items: center;
     z-index: 1000;
     animation: fadeIn 0.3s ease;
+}
+
+/* Enable background blur when desired */
+.modal.blur-bg {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Body-level blur when auth modals are active */
+.blur-active .app-header,
+.blur-active .info-bar,
+.blur-active .main-content,
+.blur-active .app-footer {
+    filter: blur(3px);
 }
 
 @keyframes fadeIn {
